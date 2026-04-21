@@ -1,0 +1,687 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EATON UPS - Árvore de Registradores Modbus</title>
+    <script src="tailwindcss.js"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .tree-branch { border-left: 2px solid rgba(100,116,139,0.2); }
+        .tree-branch:hover { border-left-color: rgba(99,102,241,0.5); }
+        
+        .node-enter { animation: nodeSlide 0.25s ease-out; }
+        @keyframes nodeSlide {
+            from { opacity: 0; transform: translateX(-8px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .section-glow { box-shadow: 0 0 0 1px rgba(99,102,241,0.15), 0 1px 3px rgba(0,0,0,0.06); }
+        .section-glow:hover { box-shadow: 0 0 0 1px rgba(99,102,241,0.4), 0 4px 12px rgba(0,0,0,0.08); }
+
+        .badge-fc02 { background: linear-gradient(135deg, #0ea5e9, #06b6d4); }
+        .badge-fc03 { background: linear-gradient(135deg, #8b5cf6, #a855f7); }
+        .badge-fc04 { background: linear-gradient(135deg, #f59e0b, #f97316); }
+
+        .stat-ring {
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 16px;
+        }
+
+        details > summary { list-style: none; cursor: pointer; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] > summary .chevron { transform: rotate(90deg); }
+        .chevron { transition: transform 0.2s ease; }
+
+        .search-highlight { background: rgba(250, 204, 21, 0.3); border-radius: 2px; padding: 0 2px; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 min-h-screen transition-colors duration-300">
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+                Árvore de Registradores EATON
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 mono">MODBUS RTU — Mapa Completo de Referência Técnica</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="themeToggle" class="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow transition-all text-slate-500 dark:text-slate-400" aria-label="Tema">
+                <svg id="themeIconSun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                <svg id="themeIconMoon" class="w-5 h-5 block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+            </button>
+            <button onclick="expandAll()" class="text-xs px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50 font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">Expandir Tudo</button>
+            <button onclick="collapseAll()" class="text-xs px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Recolher</button>
+        </div>
+    </div>
+
+    <!-- Barra de Pesquisa -->
+    <div class="mb-6 relative">
+        <input type="text" id="searchInput" placeholder="Buscar registrador por nome, endereço ou descrição..." 
+            class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 pl-11 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none shadow-sm transition-all placeholder:text-slate-400">
+        <svg class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <span id="searchCount" class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 mono hidden"></span>
+    </div>
+
+    <!-- Stats Bar -->
+    <div id="statsBar" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8"></div>
+
+    <!-- Tree Container -->
+    <div id="treeContainer" class="space-y-4"></div>
+
+</div>
+
+<script>
+// === Tema ===
+const themeToggle = document.getElementById('themeToggle');
+const iconSun = document.getElementById('themeIconSun');
+const iconMoon = document.getElementById('themeIconMoon');
+function setTheme(dark) {
+    document.documentElement.classList.toggle('dark', dark);
+    iconSun.classList.toggle('hidden', !dark);
+    iconSun.classList.toggle('block', dark);
+    iconMoon.classList.toggle('hidden', dark);
+    iconMoon.classList.toggle('block', !dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+themeToggle.addEventListener('click', () => setTheme(!document.documentElement.classList.contains('dark')));
+if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    setTheme(true);
+}
+
+// === Dados ===
+const REGISTER_DATA = [
+  {
+    "_comentario": "=== EATON UPS - MAPA DE REGISTRADORES MODBUS ===",
+    "_fonte": "164201391 Rev F (Master Modbus) + P-164001187 Rev01 (ViewUPS BACNet/Modbus)",
+    "_nota_fc02": "Registradores de status digitais. Base de endereco: 10000. Valores: 0=FALSE, 1=TRUE.",
+    "_nota_fc04": "Registradores de medicao analogica. Base de endereco: 30000. Aplicar fator de escala.",
+    "_nota_uid0": "Registradores ViewUPS UID 0 - enderecamento 0-based conforme documentacao Eaton.",
+    "_nota_uid244": "Registradores ViewUPS UID 244 - conjunto compacto para monitorizacao rapida.",
+    "_nota_uid245": "Registradores ViewUPS UID 245 - compativel com o mapa legado FC04 da 1391F."
+  },
+
+  {
+    "_secao": "FC02 - STATUS DIGITAIS (Function Code 02)",
+    "_descricao": "Leitura de entradas discretas. Endereco base 10000. Retorna 0 ou 1.",
+    "_modelos_suportados": "Todos os modelos Eaton com cartao Modbus Master"
+  },
+  { "uid": 0, "function_code": "FC02", "address": 10001, "name": "On Battery", "description": "TRUE se o UPS esta operando em bateria", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10004, "name": "ESS / High Efficiency", "description": "TRUE se o modelo suportado esta em modo ESS/Alta Eficiencia", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10010, "name": "On Bypass", "description": "TRUE se o UPS esta em bypass", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10011, "name": "System Normal", "description": "TRUE se o UPS esta operando normalmente", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10016, "name": "UPS Off", "description": "TRUE se o UPS nao esta mais fornecendo energia a carga", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10032, "name": "Static Position Switch", "description": "TRUE se a chave estatica esta ligada", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10033, "name": "Critical Bus Breaker", "description": "TRUE se o disjuntor do barramento critico esta fechado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10034, "name": "Bypass Breaker", "description": "TRUE se o disjuntor de bypass esta fechado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10036, "name": "Bypass Input Power", "description": "TRUE se a alimentacao de entrada bypass esta disponivel", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10037, "name": "Maintenance Isolation Breaker (MIB)", "description": "TRUE se o MIB esta fechado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10038, "name": "Maintenance Bypass Breaker (MBB)", "description": "TRUE se o MBB esta fechado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10112, "name": "Rectifier Status", "description": "TRUE se o retificador esta ligado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10113, "name": "Rectifier Input Status", "description": "TRUE se a entrada do retificador esta presente", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10114, "name": "Bypass Status", "description": "TRUE se o bypass esta ativo", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10117, "name": "Battery Disconnect Status", "description": "TRUE se o desconector de bateria esta fechado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10119, "name": "Inverter Status", "description": "TRUE se o inversor esta ligado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10120, "name": "UPM Normal", "description": "TRUE se o modulo UPM esta normal", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10121, "name": "UPM On Battery", "description": "TRUE se o modulo UPM esta em bateria", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10129, "name": "System Redundant", "description": "TRUE se o sistema e redundante", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10144, "name": "Inverter AC Over Voltage", "description": "TRUE se a tensao de saida do inversor excedeu o limite superior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10145, "name": "Inverter AC Under Voltage", "description": "TRUE se a tensao de saida do inversor esta abaixo do limite inferior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10146, "name": "Inverter Under/Over Frequency", "description": "TRUE se a frequencia do inversor esta fora dos limites", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10147, "name": "Bypass AC Over Voltage", "description": "TRUE se a tensao de bypass excedeu o limite superior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10148, "name": "Bypass AC Under Voltage", "description": "TRUE se a tensao de bypass esta abaixo do limite inferior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10149, "name": "Bypass Under/Over Frequency", "description": "TRUE se a frequencia de bypass esta fora dos limites", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10150, "name": "Input AC Over Voltage", "description": "TRUE se a tensao de entrada (concessionaria) excedeu o limite superior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10151, "name": "Input AC Under Voltage", "description": "TRUE se a tensao de entrada (concessionaria) esta abaixo do limite inferior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10152, "name": "Input Under/Over Frequency", "description": "TRUE se a frequencia de entrada esta fora dos limites", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10153, "name": "Output AC Over Voltage", "description": "TRUE se a tensao de saida excedeu o limite superior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10154, "name": "Output AC Under Voltage", "description": "TRUE se a tensao de saida esta abaixo do limite inferior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10155, "name": "Output Under/Over Frequency", "description": "TRUE se a frequencia de saida esta fora dos limites", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10156, "name": "Remote Emergency Power Off (REPO)", "description": "TRUE se o UPS desligou por ativacao do sinal EPO remoto", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10163, "name": "Building Alarm 1", "description": "TRUE se contato seco foi detectado na entrada Building Alarm 1", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10164, "name": "Building Alarm 2", "description": "TRUE se contato seco foi detectado na entrada Building Alarm 2", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10165, "name": "Building Alarm 3", "description": "TRUE se contato seco foi detectado na entrada Building Alarm 3", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10166, "name": "Building Alarm 4", "description": "TRUE se contato seco foi detectado na entrada Building Alarm 4", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10167, "name": "Building Alarm 5", "description": "TRUE se contato seco foi detectado na entrada Building Alarm 5", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10168, "name": "Building Alarm 6", "description": "TRUE se contato seco foi detectado na entrada Building Alarm 6", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10165, "name": "Charger Over Temperature", "description": "TRUE se a temperatura do carregador de bateria excedeu o limite", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10168, "name": "Inverter Over Temperature", "description": "TRUE se a temperatura do inversor excedeu o limite superior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10169, "name": "Output Overload", "description": "TRUE se a corrente de saida excedeu o limite", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10172, "name": "DC Link Over Voltage", "description": "TRUE se a tensao do link DC excedeu o limite superior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10173, "name": "DC Link Under Voltage", "description": "TRUE se a tensao do link DC esta abaixo do limite inferior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10174, "name": "Rectifier Failed", "description": "TRUE se o retificador falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10175, "name": "Inverter Fault", "description": "TRUE se o inversor falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10176, "name": "Battery Contactor Fail", "description": "TRUE se o contator de bateria falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10178, "name": "Charger Failure", "description": "TRUE se o carregador de bateria falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10191, "name": "Battery Current Limit", "description": "TRUE se a bateria esta operando na corrente maxima", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10194, "name": "Output Current Over 100%", "description": "TRUE se o barramento critico excedeu 100% da corrente nominal", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10195, "name": "Battery Ground Fault", "description": "TRUE se existe caminho de fuga entre a bateria e o terra", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10199, "name": "Shutdown Imminent", "description": "TRUE se o UPS entrou em estado de possivel desligamento abrupto", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10200, "name": "Battery Low", "description": "TRUE se a tensao da bateria esta baixa", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10201, "name": "Utility Fail", "description": "TRUE se a energia de entrada nao esta dentro dos limites predefinidos", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10202, "name": "Output Short Circuit", "description": "TRUE se o UPS detectou impedancia anormalmente baixa na saida", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10203, "name": "Utility Not Present", "description": "TRUE se a entrada de concessionaria nao esta presente", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10204, "name": "Full Time Charging", "description": "TRUE se o carregador de bateria esta ativo", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10211, "name": "Input Line Voltage Loss", "description": "TRUE se a tensao de entrada esta fora dos limites", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10212, "name": "Battery DC Over Voltage", "description": "TRUE se a tensao da bateria excedeu o limite predefinido", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10214, "name": "Power Supply Failure", "description": "TRUE se a fonte de alimentacao logica falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10229, "name": "Network Not Responding", "description": "TRUE se a comunicacao de rede falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10241, "name": "Emergency Shutdown Command", "description": "TRUE se um comando EPO (Emergency Power Off) foi emitido", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10249, "name": "Bypass Not Available", "description": "TRUE se a tensao de bypass nao esta disponivel para transferencia", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10250, "name": "Rectifier Breaker Open", "description": "TRUE se o disjuntor do retificador/carregador esta aberto", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10251, "name": "Battery Contactor Open", "description": "TRUE se o contator/disjuntor da bateria esta aberto", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10252, "name": "Inverter Contactor Open", "description": "TRUE se o contator/disjuntor de saida do inversor esta aberto", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10253, "name": "Bypass Breaker Open", "description": "TRUE se o disjuntor de bypass esta aberto", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10270, "name": "Battery Totally Discharged", "description": "TRUE se a bateria foi descarregada ao maximo", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10276, "name": "Loss of Redundancy", "description": "TRUE se um modulo de potencia falhou e o sistema perdeu redundancia", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10281, "name": "Output Breaker Open", "description": "TRUE se o disjuntor de saida do UPS esta aberto", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10282, "name": "Control Power On", "description": "TRUE se a alimentacao de controle esta aplicada", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10283, "name": "Inverter On", "description": "TRUE se o inversor esta ligado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10284, "name": "Charger On", "description": "TRUE se o carregador esta ligado", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10285, "name": "Bypass On", "description": "TRUE se o bypass esta disponivel", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10286, "name": "Bypass Power Loss", "description": "TRUE se a entrada de bypass tem potencia insuficiente para suprir a carga atual", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10293, "name": "Check Battery Flag", "description": "TRUE se a bateria falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10294, "name": "Battery Charging", "description": "TRUE se a bateria esta sendo carregada", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10295, "name": "Battery Not Charged", "description": "TRUE se a bateria nao esta completamente carregada", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10312, "name": "UPS On Battery", "description": "TRUE se o UPS esta operando em bateria", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10313, "name": "UPS On Bypass", "description": "TRUE se o UPS esta em bypass", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10314, "name": "Load Dumped (Load Power Off)", "description": "TRUE se a energia da carga esta desligada", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10315, "name": "Load On Inverter", "description": "TRUE se o inversor esta fornecendo energia a carga", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10335, "name": "Battery Test Failed", "description": "TRUE se a bateria falhou no teste e precisa ser substituida", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10336, "name": "Fuse Failure", "description": "TRUE se pelo menos um fusivel do UPS falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10337, "name": "Fan Failure", "description": "TRUE se pelo menos um ventilador do UPS falhou", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10338, "name": "Site Wiring Fault", "description": "TRUE se ha falha na fiacao de entrada", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10343, "name": "Batteries Disconnected", "description": "TRUE se as baterias nao estao conectadas", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10344, "name": "UPS Cabinet Over Temperature", "description": "TRUE se a temperatura interna do UPS excedeu o limite superior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10346, "name": "Ambient Under Temperature", "description": "TRUE se a temperatura ambiente esta abaixo do limite inferior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10347, "name": "Ambient Over Temperature", "description": "TRUE se a temperatura ambiente excedeu o limite superior", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10380, "name": "UPS Normal", "description": "TRUE se o UPS esta operando normalmente", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10391, "name": "UPS On Generator", "description": "TRUE se o UPS esta operando com energia de gerador", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10399, "name": "Battery Test in Progress", "description": "TRUE se o teste de bateria esta em andamento", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10400, "name": "System Test in Progress", "description": "TRUE se o teste de sistema esta em andamento", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10465, "name": "Battery Over Temperature", "description": "TRUE se a temperatura de operacao da bateria excedeu o limite", "unit": "bool", "scale": 1, "data_type": "boolean" },
+  { "uid": 0, "function_code": "FC02", "address": 10503, "name": "Over Energy Warning", "description": "TRUE se aviso de sobre-energia esta ativo", "unit": "bool", "scale": 1, "data_type": "boolean" },
+
+  {
+    "_secao": "FC04 - REGISTRADORES DE MEDICAO ANALOGICA (Function Code 04)",
+    "_descricao": "Leitura de registradores de entrada. Endereco base 30000. Aplicar fator de escala (dividir pelo valor de scale).",
+    "_modelos_suportados": "Todos os modelos Eaton com cartao Modbus Master"
+  },
+  { "uid": 0, "function_code": "FC04", "address": 30001, "name": "Output Volts AB (fase-fase)", "description": "Tensao RMS de saida fase A para fase B", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30002, "name": "Output Volts BC (fase-fase)", "description": "Tensao RMS de saida fase B para fase C", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30003, "name": "Output Volts CA (fase-fase)", "description": "Tensao RMS de saida fase C para fase A", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30004, "name": "Input Volts AB (fase-fase)", "description": "Tensao RMS de entrada da concessionaria fase A para fase B", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30005, "name": "Input Volts BC (fase-fase)", "description": "Tensao RMS de entrada da concessionaria fase B para fase C", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30006, "name": "Input Volts CA (fase-fase)", "description": "Tensao RMS de entrada da concessionaria fase C para fase A", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30007, "name": "Inverter Volts AB (fase-fase)", "description": "Tensao RMS de saida do inversor fase A para fase B", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30008, "name": "Inverter Volts BC (fase-fase)", "description": "Tensao RMS de saida do inversor fase B para fase C", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30009, "name": "Inverter Volts CA (fase-fase)", "description": "Tensao RMS de saida do inversor fase C para fase A", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30010, "name": "Bypass Volts AB (fase-fase)", "description": "Tensao RMS na entrada de bypass fase A para fase B", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30011, "name": "Bypass Volts BC (fase-fase)", "description": "Tensao RMS na entrada de bypass fase B para fase C", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30012, "name": "Bypass Volts CA (fase-fase)", "description": "Tensao RMS na entrada de bypass fase C para fase A", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 190.0, "max": 500.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30016, "name": "Inverter Avg Current Phase A", "description": "Corrente media de saida do inversor fase A (medicao de servico)", "unit": "A", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30017, "name": "Inverter Avg Current Phase B", "description": "Corrente media de saida do inversor fase B (medicao de servico)", "unit": "A", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30018, "name": "Inverter Avg Current Phase C", "description": "Corrente media de saida do inversor fase C (medicao de servico)", "unit": "A", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30019, "name": "Input Current Phase A", "description": "Corrente RMS de entrada fase A", "unit": "A", "scale": 10, "data_type": "uint16", "min": 0.0, "max": 2000.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30020, "name": "Input Current Phase B", "description": "Corrente RMS de entrada fase B", "unit": "A", "scale": 10, "data_type": "uint16", "min": 0.0, "max": 2000.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30021, "name": "Input Current Phase C", "description": "Corrente RMS de entrada fase C", "unit": "A", "scale": 10, "data_type": "uint16", "min": 0.0, "max": 2000.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30022, "name": "Output True Power (kW)", "description": "Potencia ativa de saida", "unit": "kW", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30023, "name": "Input True Power (kW)", "description": "Potencia ativa de entrada", "unit": "kW", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30024, "name": "Output Apparent Power (kVA)", "description": "Potencia aparente de saida", "unit": "kVA", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30025, "name": "Input Apparent Power (kVA)", "description": "Potencia aparente de entrada", "unit": "kVA", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30026, "name": "Output Power Factor", "description": "Fator de potencia de saida (0.00 a 1.00)", "unit": "PF", "scale": 100, "data_type": "uint16", "min": 0.0, "max": 1.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30027, "name": "Input Power Factor", "description": "Fator de potencia de entrada (0.00 a 1.00)", "unit": "PF", "scale": 100, "data_type": "uint16", "min": 0.0, "max": 1.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30028, "name": "Output Frequency", "description": "Frequencia de saida", "unit": "Hz", "scale": 10, "data_type": "uint16", "min": 45.0, "max": 70.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30029, "name": "Input Frequency", "description": "Frequencia de entrada da concessionaria", "unit": "Hz", "scale": 10, "data_type": "uint16", "min": 45.0, "max": 70.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30030, "name": "Inverter Frequency", "description": "Frequencia de saida do inversor", "unit": "Hz", "scale": 10, "data_type": "uint16", "min": 45.0, "max": 70.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30031, "name": "Bypass Frequency", "description": "Frequencia da alimentacao de bypass", "unit": "Hz", "scale": 10, "data_type": "uint16", "min": 45.0, "max": 70.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30032, "name": "DC Link Volts", "description": "Tensao CC do link retificador-inversor (medicao de servico)", "unit": "Vdc", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30033, "name": "Battery Current", "description": "Corrente de bateria (corrente de descarga e negativa)", "unit": "A", "scale": 10, "data_type": "int16" },
+  { "uid": 0, "function_code": "FC04", "address": 30034, "name": "Battery Voltage", "description": "Tensao da bateria em CC", "unit": "Vdc", "scale": 10, "data_type": "uint16", "min": 0.0, "max": 600.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30035, "name": "Battery Percent Left (%)", "description": "Percentual de energia armazenada restante (0% = completamente descarregada)", "unit": "%", "scale": 10, "data_type": "uint16", "min": 0.0, "max": 100.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30036, "name": "Battery Time Remaining", "description": "Tempo estimado de autonomia para a carga atual", "unit": "min", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30037, "name": "Battery Charge Time", "description": "Tempo estimado para carregar a bateria completamente", "unit": "min", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30041, "name": "Avg Input Current 3-Phase Sum", "description": "Soma media das tres fases de corrente de entrada (servico)", "unit": "A", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30054, "name": "Bypass Volts Phase A (fase-neutro)", "description": "Tensao RMS de bypass fase A para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30055, "name": "Bypass Volts Phase B (fase-neutro)", "description": "Tensao RMS de bypass fase B para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30056, "name": "Bypass Volts Phase C (fase-neutro)", "description": "Tensao RMS de bypass fase C para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30057, "name": "Input Volts Phase A (fase-neutro)", "description": "Tensao RMS de entrada fase A para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30058, "name": "Input Volts Phase B (fase-neutro)", "description": "Tensao RMS de entrada fase B para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30059, "name": "Input Volts Phase C (fase-neutro)", "description": "Tensao RMS de entrada fase C para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30060, "name": "Inverter Volts Phase A (fase-neutro)", "description": "Tensao de saida aparente do inversor fase A para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30061, "name": "Inverter Volts Phase B (fase-neutro)", "description": "Tensao de saida aparente do inversor fase B para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30062, "name": "Inverter Volts Phase C (fase-neutro)", "description": "Tensao de saida aparente do inversor fase C para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30063, "name": "Ambient Temperature", "description": "Temperatura ambiente em graus Celsius", "unit": "°C", "scale": 10, "data_type": "int16", "min": -20.0, "max": 60.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30064, "name": "Heatsink Temperature", "description": "Temperatura do dissipador de calor do modulo de potencia (inversor)", "unit": "°C", "scale": 10, "data_type": "int16", "min": -20.0, "max": 100.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30065, "name": "Power Supply Temperature", "description": "Temperatura da fonte de alimentacao (retificador, carregador ou boost)", "unit": "°C", "scale": 10, "data_type": "int16", "min": -20.0, "max": 100.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30066, "name": "Load Current Phase A", "description": "Corrente RMS de saida fase A para a carga", "unit": "A", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30067, "name": "Load Current Phase B", "description": "Corrente RMS de saida fase B para a carga", "unit": "A", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30068, "name": "Load Current Phase C", "description": "Corrente RMS de saida fase C para a carga", "unit": "A", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30072, "name": "Output VA Bar Chart", "description": "kVA nominal do UPS (valor de referencia 100%)", "unit": "kVA", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30075, "name": "Positive DC Link Rail Voltage", "description": "Tensao positiva do link CC bipolar (medicao de servico)", "unit": "Vdc", "scale": 10, "data_type": "int16" },
+  { "uid": 0, "function_code": "FC04", "address": 30076, "name": "Negative DC Link Rail Voltage", "description": "Tensao negativa do link CC bipolar (medicao de servico)", "unit": "Vdc", "scale": 10, "data_type": "int16" },
+  { "uid": 0, "function_code": "FC04", "address": 30078, "name": "Battery Temperature", "description": "Temperatura da bateria em graus Celsius", "unit": "°C", "scale": 10, "data_type": "int16", "min": -20.0, "max": 60.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30079, "name": "Output Volts Phase A (fase-neutro)", "description": "Tensao de saida para a carga fase A para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30080, "name": "Output Volts Phase B (fase-neutro)", "description": "Tensao de saida para a carga fase B para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30081, "name": "Output Volts Phase C (fase-neutro)", "description": "Tensao de saida para a carga fase C para neutro", "unit": "Vac", "scale": 10, "data_type": "uint16", "min": 100.0, "max": 300.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30082, "name": "Neutral Current", "description": "Corrente RMS no condutor neutro de saida", "unit": "A", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30083, "name": "Output Watts Phase A (kW)", "description": "Potencia ativa de saida fase A (fase-neutro)", "unit": "kW", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30084, "name": "Output Watts Phase B (kW)", "description": "Potencia ativa de saida fase B (fase-neutro)", "unit": "kW", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30085, "name": "Output Watts Phase C (kW)", "description": "Potencia ativa de saida fase C (fase-neutro)", "unit": "kW", "scale": 10, "data_type": "uint16", "min": 0.0 },
+  { "uid": 0, "function_code": "FC04", "address": 30087, "name": "Rectifier DC Current", "description": "Corrente CC do retificador para o link DC (servico)", "unit": "A", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30088, "name": "Positive Battery Voltage", "description": "Tensao positiva da bateria bipolar", "unit": "Vdc", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30089, "name": "Negative Battery Voltage", "description": "Tensao negativa da bateria bipolar", "unit": "Vdc", "scale": 10, "data_type": "uint16" },
+  { "uid": 0, "function_code": "FC04", "address": 30090, "name": "Positive Battery Current", "description": "Corrente positiva da bateria (descarga e negativa)", "unit": "A", "scale": 10, "data_type": "int16" },
+  { "uid": 0, "function_code": "FC04", "address": 30091, "name": "Negative Battery Current", "description": "Corrente negativa da bateria (descarga e negativa)", "unit": "A", "scale": 10, "data_type": "int16" },
+
+  {
+    "_secao": "ViewUPS UID 0 - REGISTRADORES PRINCIPAIS (FC03/FC04)",
+    "_descricao": "Registradores do mapa ViewUPS UID 0 - enderecamento 0-based conforme Eaton P-164001187. Usar FC03 (holding) ou FC04 (input) conforme implementacao do gateway.",
+    "_nota": "Multiplique o endereco 0-based por 2 se o controlador usa registradores de 16-bit em blocos de 32-bit (campos 2-register)."
+  },
+  { "uid": 0, "function_code": "FC03", "address": 4377, "name": "Battery Voltage (UID0)", "description": "Tensao da bateria - mapa ViewUPS UID 0", "unit": "Vdc", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5190, "name": "Battery Current (UID0)", "description": "Corrente da bateria - mapa ViewUPS UID 0 (descarga negativa)", "unit": "A", "scale": 1, "data_type": "int32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 7000, "name": "Battery Capacity Remaining (UID0)", "description": "Capacidade de bateria restante em percentual", "unit": "%", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 0.0, "max": 100.0 },
+  { "uid": 0, "function_code": "FC03", "address": 4040, "name": "Van Input (UID0)", "description": "Tensao de entrada fase A - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4042, "name": "Vbn Input (UID0)", "description": "Tensao de entrada fase B - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4044, "name": "Vcn Input (UID0)", "description": "Tensao de entrada fase C - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4028, "name": "Vab Input (UID0)", "description": "Tensao de entrada fase A-B", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4030, "name": "Vbc Input (UID0)", "description": "Tensao de entrada fase B-C", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4032, "name": "Vca Input (UID0)", "description": "Tensao de entrada fase C-A", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4046, "name": "Van Output (UID0)", "description": "Tensao de saida fase A - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4048, "name": "Vbn Output (UID0)", "description": "Tensao de saida fase B - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4050, "name": "Vcn Output (UID0)", "description": "Tensao de saida fase C - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4034, "name": "Vab Output (UID0)", "description": "Tensao de saida fase A-B", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4036, "name": "Vbc Output (UID0)", "description": "Tensao de saida fase B-C", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4038, "name": "Vca Output (UID0)", "description": "Tensao de saida fase C-A", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4058, "name": "Van Bypass (UID0)", "description": "Tensao de bypass fase A - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4060, "name": "Vbn Bypass (UID0)", "description": "Tensao de bypass fase B - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4062, "name": "Vcn Bypass (UID0)", "description": "Tensao de bypass fase C - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 4052, "name": "Vab Bypass (UID0)", "description": "Tensao de bypass fase A-B", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5022, "name": "IinA (UID0)", "description": "Corrente de entrada fase A", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5024, "name": "IinB (UID0)", "description": "Corrente de entrada fase B", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5026, "name": "IinC (UID0)", "description": "Corrente de entrada fase C", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5028, "name": "IoutA (UID0)", "description": "Corrente de saida fase A", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5030, "name": "IoutB (UID0)", "description": "Corrente de saida fase B", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5032, "name": "IoutC (UID0)", "description": "Corrente de saida fase C", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5034, "name": "IoutN (UID0)", "description": "Corrente de saida neutro", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93PM-50kW","93PM-60kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5576, "name": "IbypassA (UID0)", "description": "Corrente de bypass fase A", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5578, "name": "IbypassB (UID0)", "description": "Corrente de bypass fase B", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5580, "name": "IbypassC (UID0)", "description": "Corrente de bypass fase C", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 5600, "name": "Total Input Current (UID0)", "description": "Corrente total de entrada (3 fases)", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6016, "name": "Watts Out Phase A (UID0)", "description": "Potencia ativa de saida fase A em kW", "unit": "kW", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355"] },
+  { "uid": 0, "function_code": "FC03", "address": 6018, "name": "Watts Out Phase B (UID0)", "description": "Potencia ativa de saida fase B em kW", "unit": "kW", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355"] },
+  { "uid": 0, "function_code": "FC03", "address": 6020, "name": "Watts Out Phase C (UID0)", "description": "Potencia ativa de saida fase C em kW", "unit": "kW", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355"] },
+  { "uid": 0, "function_code": "FC03", "address": 6022, "name": "Watts In (UID0)", "description": "Potencia ativa de entrada total em kW", "unit": "kW", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6024, "name": "Watts Out (UID0)", "description": "Potencia ativa de saida total em kW", "unit": "kW", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6080, "name": "Output VA Phase A (UID0)", "description": "Potencia aparente de saida fase A em kVA", "unit": "kVA", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW"] },
+  { "uid": 0, "function_code": "FC03", "address": 6088, "name": "VA Out (UID0)", "description": "Potencia aparente de saida total em kVA", "unit": "kVA", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6086, "name": "VA In (UID0)", "description": "Potencia aparente de entrada total em kVA", "unit": "kVA", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6184, "name": "Percent Full Load (UID0)", "description": "Percentual de carga nominal instalada", "unit": "%", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 0.0, "max": 100.0 },
+  { "uid": 0, "function_code": "FC03", "address": 6186, "name": "Percent Full Load A (UID0)", "description": "Percentual de carga nominal fase A", "unit": "%", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93PM-50kW","93PM-60kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6188, "name": "Percent Full Load B (UID0)", "description": "Percentual de carga nominal fase B", "unit": "%", "scale": 1, "data_type": "uint32", "modelos": ["93PM-50kW","93PM-60kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6190, "name": "Percent Full Load C (UID0)", "description": "Percentual de carga nominal fase C", "unit": "%", "scale": 1, "data_type": "uint32", "modelos": ["93PM-50kW","93PM-60kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6202, "name": "Output PF (UID0)", "description": "Fator de potencia de saida", "unit": "PF", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 6204, "name": "Input PF (UID0)", "description": "Fator de potencia de entrada", "unit": "PF", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 11002, "name": "Output Frequency (UID0)", "description": "Frequencia de saida", "unit": "Hz", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 45.0, "max": 70.0 },
+  { "uid": 0, "function_code": "FC03", "address": 11004, "name": "Input Frequency (UID0)", "description": "Frequencia de entrada da concessionaria", "unit": "Hz", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 45.0, "max": 70.0 },
+  { "uid": 0, "function_code": "FC03", "address": 11008, "name": "Bypass Frequency (UID0)", "description": "Frequencia de bypass", "unit": "Hz", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9155-30kW","9355","9395","9395P"], "min": 45.0, "max": 70.0 },
+  { "uid": 0, "function_code": "FC03", "address": 12000, "name": "Ambient Temperature (UID0)", "description": "Temperatura ambiente em graus Celsius", "unit": "°C", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": -20.0, "max": 60.0 },
+  { "uid": 0, "function_code": "FC03", "address": 12006, "name": "Battery Temperature (UID0)", "description": "Temperatura da bateria em graus Celsius", "unit": "°C", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW"], "min": -20.0, "max": 60.0 },
+  { "uid": 0, "function_code": "FC03", "address": 12206, "name": "Battery Time Remaining (UID0)", "description": "Tempo de autonomia restante estimado", "unit": "min", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 0.0 },
+  { "uid": 0, "function_code": "FC03", "address": 12208, "name": "Battery Charge Time (UID0)", "description": "Tempo estimado para carga completa da bateria", "unit": "min", "scale": 1, "data_type": "uint32", "modelos": [] },
+  { "uid": 0, "function_code": "FC03", "address": 7002, "name": "Output KW Hours (UID0)", "description": "Energia ativa de saida acumulada em kWh", "unit": "kWh", "scale": 1, "data_type": "uint32", "modelos": ["93PM-50kW","93PM-60kW","9395","9395P"], "min": 0.0 },
+  { "uid": 0, "function_code": "FC03", "address": 3002, "name": "Output State (UID0)", "description": "Estado de saida do UPS (enum): 0=desligado, 1=em bateria, 2=bypass, 3=normal, etc.", "unit": "enum", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 3011, "name": "Charger Status (UID0)", "description": "Estado do carregador de bateria", "unit": "enum", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 3145, "name": "ABM Status (UID0)", "description": "Estado do sistema ABM (Advanced Battery Management)", "unit": "enum", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+
+  {
+    "_secao": "ViewUPS UID 0 - REGISTRADORES DE IDENTIFICACAO",
+    "_descricao": "Registradores de texto para identificacao do equipamento (string ASCII 16-bit por caractere)"
+  },
+  { "uid": 0, "function_code": "FC03", "address": 1032, "name": "Vendor Name (UID0)", "description": "Nome do fabricante (string ASCII)", "unit": "string", "scale": 1, "data_type": "string32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 1064, "name": "Model Name (UID0)", "description": "Nome do modelo do UPS (string ASCII)", "unit": "string", "scale": 1, "data_type": "string32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 1276, "name": "Serial Number (UID0)", "description": "Numero de serie do equipamento (string ASCII)", "unit": "string", "scale": 1, "data_type": "string20", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 2076, "name": "Part Number (UID0)", "description": "Numero de peca do equipamento (string ASCII)", "unit": "string", "scale": 1, "data_type": "string32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 1357, "name": "Nominal Input Voltage L-L (UID0)", "description": "Tensao nominal de entrada linha-linha", "unit": "Vac", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 1359, "name": "Nominal Output Voltage (UID0)", "description": "Tensao nominal de saida", "unit": "Vac", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 1361, "name": "Number of Phases (UID0)", "description": "Numero de fases do UPS", "unit": "fases", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 1669, "name": "Nominal Input Frequency (UID0)", "description": "Frequencia nominal de entrada", "unit": "Hz", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 1670, "name": "Nominal Output Frequency (UID0)", "description": "Frequencia nominal de saida", "unit": "Hz", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 18118, "name": "Output VA Rating (UID0)", "description": "Potencia aparente nominal de saida em kVA", "unit": "kVA", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 18120, "name": "Output Watts Rating (UID0)", "description": "Potencia ativa nominal de saida em kW", "unit": "kW", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 18134, "name": "Input Current Rating (UID0)", "description": "Corrente nominal de entrada", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 1810, "name": "Output Current Rating (UID0)", "description": "Corrente nominal de saida", "unit": "A", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+
+  {
+    "_secao": "ViewUPS UID 0 - ALARMES E STATUS DISCRETOS (Discrete)",
+    "_descricao": "Registradores de status e alarme do mapa ViewUPS UID 0. Tipo: Discrete = uint16 (0 ou 1)."
+  },
+  { "uid": 0, "function_code": "FC03", "address": 12663, "name": "System On Bypass (UID0 Status)", "description": "Sistema em bypass", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12665, "name": "System Output On (UID0 Status)", "description": "Saida do sistema ligada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12666, "name": "Battery Energized (UID0 Status)", "description": "Bateria energizada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12667, "name": "Utility Present (UID0 Status)", "description": "Energia da concessionaria presente", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12668, "name": "Rectifier Output On (UID0 Status)", "description": "Saida do retificador ligada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12669, "name": "Inverter Output On (UID0 Status)", "description": "Saida do inversor ligada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12670, "name": "Charger On (UID0 Status)", "description": "Carregador de bateria ativo", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12671, "name": "Batteries Depleted (UID0 Status)", "description": "Baterias esgotadas", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12683, "name": "Indicator - Bypass Not Available (UID0)", "description": "Bypass nao disponivel", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12627, "name": "Bypass In Limits (UID0)", "description": "Bypass dentro dos limites de operacao", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12629, "name": "Input In Limits (UID0)", "description": "Entrada dentro dos limites de operacao", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12630, "name": "Output In Limits (UID0)", "description": "Saida dentro dos limites de operacao", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12680, "name": "System Normal (UID0 Status)", "description": "Sistema operando normalmente", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93PM-50kW","93PM-60kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 17027, "name": "Load Power Off (UID0)", "description": "Energia da carga desligada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 17028, "name": "On Battery (UID0 Status)", "description": "UPS operando em bateria", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12698, "name": "High Efficiency / ESS (UID0)", "description": "UPS em modo Alta Eficiencia / ESS ativo", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 0, "function_code": "FC03", "address": 12626, "name": "Shutdown Imminent Time (UID0)", "description": "Tempo restante ate o desligamento iminente (segundos)", "unit": "s", "scale": 1, "data_type": "uint32", "modelos": ["93PM-G2-200kW","9395","9395P"] },
+
+  {
+    "_secao": "ViewUPS UID 244 - CONJUNTO COMPACTO PARA MONITORAMENTO RAPIDO",
+    "_descricao": "Registradores do mapa UID 244 - subconjunto compacto com os parametros mais importantes para monitorizacao. Usar FC03.",
+    "_nota": "Enderecamento 0-based. Suportados por todos os modelos Eaton listados."
+  },
+  { "uid": 244, "function_code": "FC03", "address": 256, "name": "IinA (UID244)", "description": "Corrente de entrada fase A", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 257, "name": "IinB (UID244)", "description": "Corrente de entrada fase B", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 258, "name": "IinC (UID244)", "description": "Corrente de entrada fase C", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 262, "name": "IbypassA (UID244)", "description": "Corrente de bypass fase A", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 263, "name": "IbypassB (UID244)", "description": "Corrente de bypass fase B", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 264, "name": "IbypassC (UID244)", "description": "Corrente de bypass fase C", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 265, "name": "IoutA (UID244)", "description": "Corrente de saida fase A", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 266, "name": "IoutB (UID244)", "description": "Corrente de saida fase B", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 267, "name": "IoutC (UID244)", "description": "Corrente de saida fase C", "unit": "A", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 270, "name": "Battery Current (UID244)", "description": "Corrente da bateria (descarga negativa)", "unit": "A", "scale": 1, "data_type": "int32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 273, "name": "Output Watts Rating (UID244)", "description": "Potencia ativa nominal de saida em kW", "unit": "kW", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 277, "name": "Vab Input (UID244)", "description": "Tensao de entrada fase A-B", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 278, "name": "Vbc Input (UID244)", "description": "Tensao de entrada fase B-C", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 279, "name": "Vca Input (UID244)", "description": "Tensao de entrada fase C-A", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 286, "name": "Van Bypass (UID244)", "description": "Tensao de bypass fase A - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 287, "name": "Vbn Bypass (UID244)", "description": "Tensao de bypass fase B - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 288, "name": "Vcn Bypass (UID244)", "description": "Tensao de bypass fase C - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 289, "name": "Vab Bypass (UID244)", "description": "Tensao de bypass fase A-B", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 290, "name": "Vbc Bypass (UID244)", "description": "Tensao de bypass fase B-C", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 291, "name": "Vca Bypass (UID244)", "description": "Tensao de bypass fase C-A", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 292, "name": "Van Output (UID244)", "description": "Tensao de saida fase A - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 293, "name": "Vbn Output (UID244)", "description": "Tensao de saida fase B - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 294, "name": "Vcn Output (UID244)", "description": "Tensao de saida fase C - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 295, "name": "Vab Output (UID244)", "description": "Tensao de saida fase A-B", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 296, "name": "Vbc Output (UID244)", "description": "Tensao de saida fase B-C", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 297, "name": "Vca Output (UID244)", "description": "Tensao de saida fase C-A", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 301, "name": "Battery Voltage (UID244)", "description": "Tensao da bateria", "unit": "Vdc", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 310, "name": "Watts Out (UID244)", "description": "Potencia ativa de saida total em kW", "unit": "kW", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 311, "name": "VA Out (UID244)", "description": "Potencia aparente de saida total em kVA", "unit": "kVA", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 313, "name": "Percent Full Load (UID244)", "description": "Percentual de carga nominal instalada", "unit": "%", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 0.0, "max": 100.0 },
+  { "uid": 244, "function_code": "FC03", "address": 317, "name": "Output Power Factor (UID244)", "description": "Fator de potencia de saida", "unit": "PF", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 318, "name": "Input Frequency (UID244)", "description": "Frequencia de entrada", "unit": "Hz", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 45.0, "max": 70.0 },
+  { "uid": 244, "function_code": "FC03", "address": 320, "name": "Bypass Frequency (UID244)", "description": "Frequencia de bypass", "unit": "Hz", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9155-30kW","9355","9395","9395P"], "min": 45.0, "max": 70.0 },
+  { "uid": 244, "function_code": "FC03", "address": 321, "name": "Output Frequency (UID244)", "description": "Frequencia de saida", "unit": "Hz", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 45.0, "max": 70.0 },
+  { "uid": 244, "function_code": "FC03", "address": 329, "name": "Battery Time Remaining (UID244)", "description": "Tempo de autonomia restante", "unit": "min", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 0.0 },
+  { "uid": 244, "function_code": "FC03", "address": 331, "name": "Battery Capacity Remaining (UID244)", "description": "Capacidade de bateria restante", "unit": "%", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"], "min": 0.0, "max": 100.0 },
+  { "uid": 244, "function_code": "FC03", "address": 336, "name": "Van Input (UID244)", "description": "Tensao de entrada fase A - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 337, "name": "Vbn Input (UID244)", "description": "Tensao de entrada fase B - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 338, "name": "Vcn Input (UID244)", "description": "Tensao de entrada fase C - neutro", "unit": "Vac", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 416, "name": "Vendor Name (UID244)", "description": "Nome do fabricante (string ASCII)", "unit": "string", "scale": 1, "data_type": "string32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 432, "name": "Model Name (UID244)", "description": "Nome do modelo do UPS (string ASCII)", "unit": "string", "scale": 1, "data_type": "string32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 440, "name": "Serial Number (UID244)", "description": "Numero de serie (string ASCII)", "unit": "string", "scale": 1, "data_type": "string20", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 521, "name": "Output VA Rating (UID244)", "description": "Potencia aparente nominal de saida em kVA", "unit": "kVA", "scale": 1, "data_type": "uint32", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+
+  {
+    "_secao": "ViewUPS UID 244 - STATUS DISCRETOS",
+    "_descricao": "Status discretos do UID 244 - valores 0 ou 1 em registradores uint16"
+  },
+  { "uid": 244, "function_code": "FC03", "address": 1024, "name": "System Output On (UID244 Discrete)", "description": "Saida do sistema ligada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1025, "name": "Inverter Output On (UID244 Discrete)", "description": "Saida do inversor ligada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1026, "name": "System Alarm Active (UID244 Discrete)", "description": "Alarme de sistema ativo", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1027, "name": "Configuration Error (UID244 Discrete)", "description": "Erro de configuracao detectado", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1028, "name": "UPS On Battery (UID244 Discrete)", "description": "UPS operando em bateria", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1030, "name": "Shutdown Imminent (UID244 Discrete)", "description": "Desligamento iminente", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1031, "name": "System On Bypass (UID244 Discrete)", "description": "Sistema em bypass", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1034, "name": "Output Overload (UID244 Discrete)", "description": "Sobrecarga na saida detectada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1035, "name": "Remote Emergency Power Off (UID244 Discrete)", "description": "Desligamento de emergencia remoto ativado", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1037, "name": "Battery Test Failed (UID244 Discrete)", "description": "Teste de bateria falhou", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1038, "name": "Check Fan (UID244 Discrete)", "description": "Verificar ventilador - falha detectada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1047, "name": "High Efficiency / ESS (UID244 Discrete)", "description": "Modo Alta Eficiencia / ESS ativo", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1056, "name": "Battery Energized (UID244 Discrete)", "description": "Bateria energizada", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1071, "name": "Battery Breaker (UID244 Discrete)", "description": "Disjuntor de bateria fechado", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93PM-50kW","93PM-60kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1090, "name": "Site Wiring Fault (UID244 Discrete)", "description": "Falha na fiacao do local", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1096, "name": "Utility Out Of Limits (UID244 Discrete)", "description": "Concessionaria fora dos limites", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1099, "name": "Input Under/Over Frequency (UID244 Discrete)", "description": "Frequencia de entrada fora dos limites", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1111, "name": "System Not Redundant (UID244 Discrete)", "description": "Sistema perdeu redundancia", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93PM-50kW","93PM-60kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+  { "uid": 244, "function_code": "FC03", "address": 1127, "name": "Bypass Utility Present (UID244 Discrete)", "description": "Alimentacao de bypass presente", "unit": "bool", "scale": 1, "data_type": "uint16", "modelos": ["9155-15kW","93E-30kW","93PM-50kW","93PM-60kW","93PM-G2-200kW","BladeUPS","9155-30kW","9355","9395","9395P"] },
+
+  {
+    "_secao": "RESUMO DE LEITURA RECOMENDADA PARA MONITORAMENTO CONTINUO",
+    "_descricao": "Esta secao indica os grupos de registradores recomendados para polling ciclico em um sistema SCADA/supervisorio",
+    "_grupo_1_status": "FC02 [10001..10020] - Status basico do UPS (a cada 5s)",
+    "_grupo_2_alarmes": "FC02 [10144..10215] - Alarmes de tensao, corrente e frequencia (a cada 10s)",
+    "_grupo_3_medicoes": "FC04 [30001..30091] - Medicoes analogicas completas (a cada 10s)",
+    "_grupo_4_bateria": "FC04 [30033..30037] - Status da bateria (a cada 30s)",
+    "_grupo_5_temperatura": "FC04 [30063..30065] - Temperaturas (a cada 60s)",
+    "_grupo_6_uid244": "FC03 UID244 [256..338] - Correntes e tensoes compactas (a cada 10s)",
+    "_grupo_7_uid244_status": "FC03 UID244 [310..331] - Potencia, carga e bateria compactas (a cada 10s)",
+    "_nota_performance": "Para sistemas com muitos UPS, prefira UID 244 que oferece leitura compacta de blocos consecutivos, reduzindo o numero de transacoes Modbus."
+  }
+];
+
+// Separar seções de registradores
+function parseData(data) {
+    const sections = [];
+    let currentSection = null;
+
+    data.forEach(item => {
+        if (item._secao || item._comentario) {
+            currentSection = {
+                title: item._secao || item._comentario,
+                description: item._descricao || item._fonte || '',
+                notes: [],
+                registers: []
+            };
+            // Coleta notas
+            Object.keys(item).forEach(k => {
+                if (k.startsWith('_nota')) currentSection.notes.push(item[k]);
+                if (k.startsWith('_grupo')) currentSection.notes.push(item[k]);
+            });
+            sections.push(currentSection);
+        } else if (item.address !== undefined && currentSection) {
+            currentSection.registers.push(item);
+        } else if (item.address !== undefined && !currentSection) {
+            // registrador sem seção
+            if (sections.length === 0) {
+                sections.push({ title: 'Registradores', description: '', notes: [], registers: [] });
+            }
+            sections[0].registers.push(item);
+        }
+    });
+
+    return sections.filter(s => s.registers.length > 0 || s.notes.length > 0);
+}
+
+function getFcBadgeClass(fc) {
+    if (!fc) return 'bg-slate-500';
+    if (fc === 'FC02') return 'badge-fc02';
+    if (fc === 'FC03') return 'badge-fc03';
+    if (fc === 'FC04') return 'badge-fc04';
+    return 'bg-slate-500';
+}
+
+function getTypeIcon(dt) {
+    if (!dt) return '📦';
+    if (dt === 'boolean') return '🔘';
+    if (dt.includes('int') || dt.includes('uint')) return '📊';
+    if (dt.includes('string')) return '🏷️';
+    return '📦';
+}
+
+function renderStats(sections) {
+    const allRegs = sections.flatMap(s => s.registers);
+    const fc02 = allRegs.filter(r => r.function_code === 'FC02').length;
+    const fc03 = allRegs.filter(r => r.function_code === 'FC03').length;
+    const fc04 = allRegs.filter(r => r.function_code === 'FC04').length;
+    const withLimits = allRegs.filter(r => r.min !== undefined || r.max !== undefined).length;
+
+    const stats = [
+        { label: 'Total Registradores', value: allRegs.length, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800/50' },
+        { label: 'FC02 (Discretos)', value: fc02, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800/50' },
+        { label: 'FC03 (Holding)', value: fc03, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800/50' },
+        { label: 'FC04 (Input)', value: fc04, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/50' },
+        { label: 'Com Limites', value: withLimits, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50' },
+    ];
+
+    document.getElementById('statsBar').innerHTML = stats.map(s => `
+        <div class="p-4 rounded-xl border ${s.bg} transition-all hover:shadow-sm">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">${s.label}</p>
+            <p class="text-2xl font-black mono ${s.color}">${s.value}</p>
+        </div>
+    `).join('');
+}
+
+function renderTree(sections, filter = '') {
+    const container = document.getElementById('treeContainer');
+    const filterLower = filter.toLowerCase();
+
+    let html = '';
+    let matchCount = 0;
+
+    sections.forEach((section, sIdx) => {
+        let regs = section.registers;
+        if (filterLower) {
+            regs = regs.filter(r => 
+                r.name.toLowerCase().includes(filterLower) ||
+                (r.description || '').toLowerCase().includes(filterLower) ||
+                String(r.address).includes(filterLower) ||
+                (r.function_code || '').toLowerCase().includes(filterLower) ||
+                (r.unit || '').toLowerCase().includes(filterLower)
+            );
+        }
+        if (regs.length === 0 && filterLower) return;
+        matchCount += regs.length;
+
+        // Agrupa por subcategoria deduziu pelos nomes
+        const groups = {};
+        regs.forEach(r => {
+            const fc = r.function_code || 'N/A';
+            const uid = r.uid !== undefined ? `UID ${r.uid}` : '';
+            const key = `${fc}${uid ? ' — ' + uid : ''}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(r);
+        });
+
+        const isOpen = filterLower ? true : false;
+        html += `
+        <details class="section-glow bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden transition-all" ${isOpen ? 'open' : ''}>
+            <summary class="p-5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors select-none">
+                <svg class="w-4 h-4 text-slate-400 chevron shrink-0 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">${highlightText(section.title, filterLower)}</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">${section.description}</p>
+                </div>
+                <span class="text-[10px] mono font-bold px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0">${regs.length} reg.</span>
+            </summary>
+            <div class="px-5 pb-5">
+                ${section.notes && section.notes.length > 0 ? `
+                    <div class="mb-4 flex flex-wrap gap-2">
+                        ${section.notes.map(n => `<span class="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-md mono leading-tight">${n}</span>`).join('')}
+                    </div>
+                ` : ''}
+                ${Object.entries(groups).map(([groupName, groupRegs]) => `
+                    <div class="mb-4 last:mb-0">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">${groupName}</span>
+                            <div class="flex-1 h-px bg-slate-100 dark:bg-slate-800"></div>
+                        </div>
+                        <div class="tree-branch ml-2 pl-4 space-y-1">
+                            ${groupRegs.map(r => renderRegisterNode(r, filterLower)).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </details>
+        `;
+    });
+
+    container.innerHTML = html || '<p class="text-center text-slate-400 py-12 text-sm">Nenhum registrador encontrado para sua busca.</p>';
+
+    const countEl = document.getElementById('searchCount');
+    if (filterLower) {
+        countEl.textContent = `${matchCount} encontrados`;
+        countEl.classList.remove('hidden');
+    } else {
+        countEl.classList.add('hidden');
+    }
+}
+
+function renderRegisterNode(r, filter) {
+    const fc = r.function_code || '';
+    const limitsHtml = (r.min !== undefined || r.max !== undefined)
+        ? `<span class="text-[10px] mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/40">Min: ${r.min ?? '—'} | Max: ${r.max ?? '—'}</span>`
+        : '';
+    const scaleHtml = r.scale && r.scale !== 1
+        ? `<span class="text-[10px] mono text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40">÷${r.scale}</span>`
+        : '';
+    const modelosHtml = r.modelos && r.modelos.length > 0
+        ? `<div class="flex flex-wrap gap-1 mt-1">${r.modelos.slice(0, 5).map(m => `<span class="text-[8px] mono bg-slate-100 dark:bg-slate-800 text-slate-500 px-1 py-0.5 rounded">${m}</span>`).join('')}${r.modelos.length > 5 ? `<span class="text-[8px] mono text-slate-400">+${r.modelos.length - 5}</span>` : ''}</div>`
+        : '';
+
+    return `
+    <div class="node-enter flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
+        <span class="text-sm mt-0.5">${getTypeIcon(r.data_type)}</span>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="mono text-[10px] font-bold px-1.5 py-0.5 rounded text-white shadow-sm ${getFcBadgeClass(fc)}">${fc}</span>
+                <span class="mono text-[10px] text-slate-400 dark:text-slate-500 font-semibold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">#${r.address}</span>
+                <span class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">${highlightText(r.name, filter)}</span>
+                ${r.unit && r.unit !== 'bool' && r.unit !== 'enum' ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">(${r.unit})</span>` : ''}
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">${highlightText(r.description || '', filter)}</p>
+            <div class="flex items-center gap-2 mt-1 flex-wrap">
+                ${r.data_type ? `<span class="text-[10px] mono text-indigo-500 dark:text-indigo-400">${r.data_type}</span>` : ''}
+                ${scaleHtml}
+                ${limitsHtml}
+            </div>
+            ${modelosHtml}
+        </div>
+    </div>
+    `;
+}
+
+function highlightText(text, filter) {
+    if (!filter || !text) return text;
+    const regex = new RegExp(`(${filter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<mark class="search-highlight">$1</mark>');
+}
+
+function expandAll() {
+    document.querySelectorAll('#treeContainer details').forEach(d => d.open = true);
+}
+function collapseAll() {
+    document.querySelectorAll('#treeContainer details').forEach(d => d.open = false);
+}
+
+// === Inicialização ===
+const sections = parseData(REGISTER_DATA);
+renderStats(sections);
+renderTree(sections);
+
+// Pesquisa com debounce
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const val = this.value;
+    searchTimeout = setTimeout(() => renderTree(sections, val), 200);
+});
+</script>
+
+</body>
+</html>
