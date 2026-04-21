@@ -173,6 +173,15 @@
                     <button id="demoBtn" onclick="toggleDemo()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Iniciar Simulação (Demo)
                     </button>
+                    <!-- Controles Extras do Modo Demo -->
+                    <div id="demoControls" class="hidden grid-cols-2 gap-2 mt-2 transition-all">
+                        <button onclick="setDemoHealthy()" class="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold py-1.5 px-1 text-[10px] rounded border border-emerald-500/30 transition-colors uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Saudável
+                        </button>
+                        <button onclick="triggerDemoError()" class="bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-bold py-1.5 px-1 text-[10px] rounded border border-red-500/30 transition-colors uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm">
+                           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Forçar Erro
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -663,6 +672,9 @@
     });
 
     let demoInterval = null;
+    let isDemoActive = false;
+    let demoState = 'normal'; // 'normal', 'healthy', 'error'
+    
     let fallbackMap = [
         { name: "Tensão de Entrada", unit: "V", min: 190.0, max: 240.0 },
         { name: "Carga da Bateria", unit: "%", min: 20.0, max: 100.0 },
@@ -670,14 +682,31 @@
         { name: "Corrente Total", unit: "A", max: 150.0 }
     ];
 
+    function setDemoHealthy() {
+        if (!demoInterval) return;
+        demoState = 'healthy';
+        showToast("Estabilizando máquina... Evitando zonas de risco.", "success");
+    }
+
+    function triggerDemoError() {
+        if (!demoInterval) return;
+        demoState = 'error';
+        showToast("Injetando estresse nos registradores principais...", "warning");
+    }
+
     function toggleDemo() {
         const btn = document.getElementById('demoBtn');
         const connectBtn = document.getElementById('connectBtn');
+        const controls = document.getElementById('demoControls');
         
         if (demoInterval) {
             // Parar demo
             clearInterval(demoInterval);
             demoInterval = null;
+            isDemoActive = false;
+            
+            controls.classList.add('hidden');
+            controls.classList.remove('grid');
             
             btn.innerHTML = `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Iniciar Simulação (Demo)`;
             btn.className = "w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800";
@@ -711,6 +740,12 @@
             connectBtn.disabled = true;
             connectBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
+            
+            controls.classList.remove('hidden');
+            controls.classList.add('grid');
+            isDemoActive = true;
+            demoState = 'normal';
+
             const mapToUse = localMapMemory.length > 0 ? localMapMemory : fallbackMap;
             
             let fakeValues = mapToUse.map(reg => {
@@ -721,13 +756,28 @@
 
             demoInterval = setInterval(() => {
                 const fakeData = mapToUse.map((reg, index) => {
-                    // random walk simulando variação real
-                    let randWalk = (Math.random() - 0.5) * (fakeValues[index] * 0.05);
-                    fakeValues[index] += randWalk;
-                    
-                    // Força um alarme de vez em quando (5% chance) no 1º item que tem 'min'
-                    if (index === 0 && Math.random() < 0.05) {
-                       fakeValues[index] = reg.min ? (reg.min - 5) : fakeValues[index] * 0.5;
+                    const min = reg.min !== undefined ? reg.min : 50;
+                    const max = reg.max !== undefined ? reg.max : min + 100;
+
+                    if (demoState === 'healthy') {
+                        // Força em direçao ao centro seguro rapidamente
+                        const safeValue = min + ((max - min) * 0.7);
+                        fakeValues[index] = fakeValues[index] * 0.8 + safeValue * 0.2;
+                        let randWalk = (Math.random() - 0.5) * (fakeValues[index] * 0.01);
+                        fakeValues[index] += randWalk;
+                    } else if (demoState === 'error') {
+                        // Joga os primeiros registradores com range preenchido pra fora
+                        if (index === 0 && reg.min !== undefined) {
+                           fakeValues[index] = reg.min - (reg.min * 0.1); 
+                        } else if (index === 1 && reg.max !== undefined) {
+                           fakeValues[index] = reg.max + (reg.max * 0.1);
+                        } else {
+                           fakeValues[index] = fakeValues[index] * 0.8;
+                        }
+                    } else {
+                        // random walk simulando variação real sem drop forçado (normal)
+                        let randWalk = (Math.random() - 0.5) * (fakeValues[index] * 0.05);
+                        fakeValues[index] += randWalk;
                     }
 
                     return {
@@ -738,6 +788,12 @@
                         max: reg.max
                     }
                 });
+                
+                if (demoState === 'error') {
+                    // Após a pancada seca, volta pro "normal" pra ele tentar recuperar ou variar erraticamente fora da faixa
+                    demoState = 'normal';
+                }
+
                 renderDashboardData(fakeData);
             }, 1000);
             
