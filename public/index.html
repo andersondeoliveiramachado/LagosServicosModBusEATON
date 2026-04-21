@@ -928,6 +928,21 @@
         }
     }
 
+    // --- Relógio em tempo real no Header ---
+    function updateHeaderClock() {
+        const clockEl = document.getElementById('liveHeaderClock');
+        if (clockEl) {
+            const timeStr = new Date().toLocaleString("pt-BR", { 
+                timeZone: "America/Sao_Paulo",
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+            clockEl.innerHTML = `<svg class="w-3.5 h-3.5 inline-block mr-1 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ${timeStr}`;
+        }
+    }
+    setInterval(updateHeaderClock, 1000);
+    updateHeaderClock();
+
 </script>
 
 </body>
