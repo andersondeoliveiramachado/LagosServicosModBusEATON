@@ -59,7 +59,14 @@
             <img src="logo.png" alt="Logo Lagos Serviços" class="h-12 w-auto object-contain rounded drop-shadow-sm dark:brightness-90 transition-all">
             <div>
                 <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand to-emerald-500">Centro de Monitoramento EATON</h1>
-                <p class="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">MODBUS RTU ANALYSIS ENGINE</p>
+                <div class="flex items-center gap-3 mt-0.5">
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">MODBUS RTU ANALYSIS ENGINE</p>
+                    <span class="text-slate-300 dark:text-slate-600 text-xs">|</span>
+                    <p id="liveHeaderClock" class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        --/--/---- --:--:--
+                    </p>
+                </div>
             </div>
         </div>
         
