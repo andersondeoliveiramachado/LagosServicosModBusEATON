@@ -494,13 +494,25 @@
                 activeAlarms.delete(item.name); // Recuperou
             }
 
+            let limitsHtml = '';
+            if (item.min !== undefined || item.max !== undefined) {
+                const sMin = item.min !== undefined ? item.min : '-';
+                const sMax = item.max !== undefined ? item.max : '-';
+                limitsHtml = `<div class="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-1 bg-slate-100 dark:bg-slate-800/50 inline-block px-1.5 py-0.5 rounded">Min: ${sMin} | Max: ${sMax}</div>`;
+            } else {
+                limitsHtml = `<div class="text-[10px] text-slate-300 dark:text-slate-600 font-mono mt-1">S/ Limite</div>`;
+            }
+
             tr.innerHTML = `
-                <td class="py-4 px-4 font-medium text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">${item.name}</td>
-                <td class="py-4 px-4 text-right border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">
+                <td class="py-3 px-4 font-medium text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">
+                    <div>${item.name}</div>
+                    ${limitsHtml}
+                </td>
+                <td class="py-3 px-4 text-right border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">
                     <span class="text-xl font-bold font-mono ${isAlarm ? 'text-red-500' : 'text-slate-700 dark:text-white'}">${item.value}</span>
                     <span class="text-xs ml-1 text-slate-400">${item.unit}</span>
                 </td>
-                <td class="py-4 px-4 text-xs font-semibold border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">${stateText}</td>
+                <td class="py-3 px-4 text-xs font-semibold border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">${stateText}</td>
             `;
             tbody.appendChild(tr);
         });
