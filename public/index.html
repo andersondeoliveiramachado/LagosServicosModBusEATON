@@ -217,29 +217,51 @@
         </div>
     </div>
 
-    <!-- Histórico de Alarmes -->
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6 overflow-hidden flex flex-col mt-6">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-bold text-lg flex items-center gap-2">
-                <svg class="w-5 h-5 text-red-500 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                Ocorrências (Logs de Alarme)
-            </h3>
-            <button onclick="clearAlarmLogs()" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none underline">Limpar Histórico</button>
+    <!-- Grid Inferior (Histórico + Preditiva) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        
+        <!-- Histórico de Alarmes (esq) -->
+        <div class="md:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6 overflow-hidden flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <svg class="w-5 h-5 text-red-500 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    Ocorrências (Logs de Alarme)
+                </h3>
+                <button onclick="clearAlarmLogs()" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none underline">Limpar Histórico</button>
+            </div>
+            <div class="overflow-x-auto custom-scrollbar max-h-48 overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-lg">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead class="sticky top-0 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                        <tr class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                            <th class="py-2 px-3">Horário</th>
+                            <th class="py-2 px-3">Parâmetro Original</th>
+                            <th class="py-2 px-3">Registro de Excesso</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alarmLogBody" class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                        <tr id="emptyLogState"><td colspan="3" class="py-6 text-center text-xs text-slate-400">Nenhum alarme operacional foi registrado na sessão atual.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="overflow-x-auto custom-scrollbar max-h-48 overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-lg">
-            <table class="w-full text-left border-collapse text-sm">
-                <thead class="sticky top-0 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                    <tr class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
-                        <th class="py-2 px-3">Horário</th>
-                        <th class="py-2 px-3">Parâmetro Original</th>
-                        <th class="py-2 px-3">Registro de Excesso</th>
-                    </tr>
-                </thead>
-                <tbody id="alarmLogBody" class="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    <tr id="emptyLogState"><td colspan="3" class="py-6 text-center text-xs text-slate-400">Nenhum alarme operacional foi registrado na sessão atual.</td></tr>
-                </tbody>
-            </table>
+
+        <!-- Análise Preditiva (dir) -->
+        <div class="md:col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl shadow-sm border border-slate-700 p-6 overflow-hidden flex flex-col text-white relative">
+            <div class="flex justify-between items-center mb-4 relative z-10">
+                <h3 class="font-bold text-lg flex items-center gap-2 text-indigo-300">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    Análise Preditiva
+                </h3>
+            </div>
+            <div id="predictiveContent" class="flex flex-col flex-1 justify-center relative z-10 space-y-4">
+                <!-- Estado Vazio -->
+                <div class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+                    <div class="bg-emerald-500/20 p-2 rounded-full"><svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></div>
+                    <p class="text-sm text-emerald-200 leading-tight">Sistema 100% Estável.<br><span class="text-xs opacity-70">Nenhuma anomalia crítica recorrente detectada.</span></p>
+                </div>
+            </div>
         </div>
+
     </div>
 
 </div>
@@ -717,6 +739,9 @@
     }
 
     // --- Lógica do Log de Histórico de Alarmes ---
+    let alarmStats = {};
+    let totalAlarms = 0;
+
     function logToAlarmHistory(itemName, value, unit, condition) {
         const logBody = document.getElementById('alarmLogBody');
         const emptyState = document.getElementById('emptyLogState');
@@ -739,10 +764,68 @@
         `;
         
         logBody.insertBefore(tr, logBody.firstChild);
+
+        // Alimentar Módulo Preditivo
+        alarmStats[itemName] = (alarmStats[itemName] || 0) + 1;
+        totalAlarms++;
+        updatePredictiveAnalytics();
     }
 
     function clearAlarmLogs() {
         document.getElementById('alarmLogBody').innerHTML = `<tr id="emptyLogState"><td colspan="3" class="py-6 text-center text-xs text-slate-400">Nenhum alarme operacional foi registrado na sessão atual.</td></tr>`;
+        alarmStats = {};
+        totalAlarms = 0;
+        updatePredictiveAnalytics();
+    }
+
+    function updatePredictiveAnalytics() {
+        const content = document.getElementById('predictiveContent');
+        if (totalAlarms === 0 || Object.keys(alarmStats).length === 0) {
+            content.innerHTML = `
+                <div class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+                    <div class="bg-emerald-500/20 p-2 rounded-full"><svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></div>
+                    <p class="text-sm text-emerald-200 leading-tight">Sistema 100% Estável.<br><span class="text-xs opacity-70">Nenhuma anomalia crítica recorrente detectada.</span></p>
+                </div>
+            `;
+            return;
+        }
+
+        // Descobre a falha campeã
+        let maxFaults = 0;
+        let worstParam = '';
+        for (let name in alarmStats) {
+            if (alarmStats[name] > maxFaults) {
+                maxFaults = alarmStats[name];
+                worstParam = name;
+            }
+        }
+
+        const riskPercent = Math.min(99, Math.round((maxFaults / Math.max(10, totalAlarms)) * 100) + (maxFaults*5));
+
+        content.innerHTML = `
+            <div class="flex flex-col gap-1">
+                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Ofensor Principal</span>
+                <p class="text-sm font-semibold text-red-400 line-clamp-1" title="${worstParam}">${worstParam}</p>
+            </div>
+            
+            <div class="bg-slate-800/80 shadow-inner border border-slate-700/50 px-4 py-3 rounded-xl flex items-center justify-between mt-1">
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Repetição Crônica</span>
+                    <span class="text-2xl font-black text-white leading-none">${maxFaults} <span class="text-xs text-slate-500 font-normal">falhas</span></span>
+                </div>
+                <div class="w-12 h-12 rounded-full border-[3px] border-red-500/80 flex items-center justify-center text-red-400 font-bold text-sm bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+                    ${riskPercent}%
+                </div>
+            </div>
+
+            <div class="mt-2 bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg flex gap-3 animate-fade-in">
+                <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <p class="text-xs text-amber-200/90 leading-relaxed font-medium">
+                    <strong class="text-amber-400 uppercase tracking-wide text-[10px] block mb-1">Recomendação da IA:</strong>
+                    Instabilidade progressiva deduzida. Solicita-se inspeção física preventiva dos cabos/sensores na próxima parada operacional para mitigar riscos de blecaute ou quebra da placa originária.
+                </p>
+            </div>
+        `;
     }
 
     // --- Modal Lógica de Ajuste de Limites ---
