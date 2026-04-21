@@ -1,292 +1,369 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lagos Serviços - Dashboard Modbus RS232</title>
+    <title>Lagos Serviços - Dashboard Avançado</title>
+    <!-- Bibliotecas Offline -->
+    <script src="/tailwindcss.js"></script>
+    <script src="/chart.js"></script>
+    
+    <script>
+        // Configuração do Tailwind nativo via script
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { brand: '#2563eb' },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'flash-red': 'flashRed 1.5s infinite'
+                    },
+                    keyframes: {
+                        flashRed: {
+                            '0%, 100%': { backgroundColor: 'transparent' },
+                            '50%': { backgroundColor: 'rgba(239, 68, 68, 0.15)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        :root {
-            --bg-color: #f4f6f8;
-            --text-color: #2c3e50;
-            --card-bg: #ffffff;
-            --card-border: #e1e8ed;
-            --input-bg: #ffffff;
-            --input-border: #cbd5e1;
-            --input-text: #2c3e50;
-            --input-focus-shadow: rgba(0,123,255,0.25);
-            --th-color: #64748b;
-            --td-border: #e1e8ed;
-            --status-label: #64748b;
-            --btn-bg: #007bff;
-            --btn-hover: #0056b3;
-            --value-color: #10b981; 
-            --muted-text: #64748b;
-            --header-filter: grayscale(0%);
-        }
-
-        [data-theme="dark"] {
-            --bg-color: #121212;
-            --text-color: #ffffff;
-            --card-bg: #1e1e1e;
-            --card-border: #333333;
-            --input-bg: #2a2a2a;
-            --input-border: #444444;
-            --input-text: #ffffff;
-            --input-focus-shadow: rgba(0,123,255,0.4);
-            --th-color: #888888;
-            --td-border: #333333;
-            --status-label: #888888;
-            --btn-bg: #007bff;
-            --btn-hover: #0056b3;
-            --value-color: #00e676; 
-            --muted-text: #aaaaaa;
-            --header-filter: grayscale(20%) brightness(0.9);
-        }
-
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
-        .container { max-width: 800px; margin: auto; }
-        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--card-border); transition: background-color 0.3s, border-color 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-        input[type="file"] { margin-bottom: 10px; color: var(--text-color); }
-        button { background: var(--btn-bg); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; font-weight: 500; }
-        button:hover { background: var(--btn-hover); }
-        button:active { transform: scale(0.98); }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--td-border); }
-        th { color: var(--th-color); text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
-        .value { font-weight: bold; color: var(--value-color); font-size: 18px; }
-        .status-bar { display: flex; gap: 20px; margin-bottom: 20px; }
-        .status-item { flex: 1; padding: 15px; border-radius: 4px; border: 1px solid var(--card-border); background: var(--card-bg); transition: background-color 0.3s, border-color 0.3s; }
-        .status-label { font-size: 12px; color: var(--status-label); text-transform: uppercase; margin-bottom: 5px; font-weight: 600; }
-        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .status-connected { background: #10b981; color: #fff; }
-        .status-disconnected { background: #ef4444; color: #fff; }
-        .status-pending { background: #f59e0b; color: #fff; }
-        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
-        input[type="text"], input[type="number"], select { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--input-text); border-radius: 4px; font-size: 14px; box-sizing: border-box; transition: background-color 0.3s, border-color 0.3s, color 0.3s; }
-        input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px var(--input-focus-shadow); }
-        .button-group { display: flex; gap: 10px; }
-        .button-group button { flex: 1; }
-        button.danger { background: #ef4444; }
-        button.danger:hover { background: #dc2626; }
+        /* Toast Container */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 50; display: flex; flex-direction: column; gap: 10px; }
+        .toast { min-width: 250px; padding: 15px; border-radius: 8px; font-weight: 500; font-size: 14px; color: white; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); animation: slideIn 0.3s ease-out; }
+        .toast.error { background: #ef4444; }
+        .toast.success { background: #10b981; }
+        .toast.warning { background: #f59e0b; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         
-        /* Theme toggle button specific styles */
-        .theme-toggle { background: transparent; color: var(--text-color); border: 1px solid var(--card-border); padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-radius: 20px; font-size: 14px; }
-        .theme-toggle:hover { background: var(--card-border); }
-        .logo-img { transition: filter 0.3s; filter: var(--header-filter); }
+        /* Custom scrollbar para tabelas */
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
+        
+        /* Fix Chart flicker em algums renderizadores webkit */
+        canvas { -moz-user-select: none; -webkit-user-select: none; -ms-user-select: none; }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300 min-h-screen pb-10">
 
-<div class="container">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-            <img src="logo.png" alt="Logo Lagos Serviços" class="logo-img" style="height: 50px; border-radius: 4px;">
-            <h2 style="margin: 0; font-size: 22px;">📡 Dashboard Modbus</h2>
-        </div>
-        <button id="themeToggle" class="theme-toggle" aria-label="Alternar Tema">
-            <span id="themeIcon">🌙</span> <span>Modo Escuro</span>
-        </button>
-    </div>
-
-    <div class="status-bar">
-        <div class="status-item">
-            <div class="status-label">🗂️ Mapa de Registradores</div>
-            <div><span class="status-badge status-disconnected" id="mapStatus">Não Carregado</span></div>
-        </div>
-        <div class="status-item">
-            <div class="status-label">📶 Conexão Serial</div>
-            <div><span class="status-badge status-pending" id="serialStatus">Conectando...</span></div>
-        </div>
-    </div>
-
-    <div class="card">
-        <h3>⚙️ Configuração da Conexão Serial</h3>
-        <p style="font-size: 13px; color: var(--muted-text);">Configure os parâmetros da porta serial para conectar ao dispositivo Modbus.</p>
-        <div class="config-grid">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Cabeçalho Principal -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div class="flex items-center gap-4">
+            <img src="logo.png" alt="Logo Lagos Serviços" class="h-12 w-auto object-contain rounded drop-shadow-sm dark:brightness-90 transition-all">
             <div>
-                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Porta Serial</label>
-                <input type="text" id="serialPort" placeholder="COM1" value="COM1">
-            </div>
-            <div>
-                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Baud Rate</label>
-                <input type="number" id="baudRate" value="9600" min="1200" max="115200">
-            </div>
-            <div>
-                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Data Bits</label>
-                <select id="dataBits">
-                    <option value="7">7</option>
-                    <option value="8" selected>8</option>
-                </select>
-            </div>
-            <div>
-                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Stop Bits</label>
-                <select id="stopBits">
-                    <option value="1" selected>1</option>
-                    <option value="2">2</option>
-                </select>
-            </div>
-            <div>
-                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Parity</label>
-                <select id="parity">
-                    <option value="none" selected>Nenhuma</option>
-                    <option value="even">Par</option>
-                    <option value="odd">Ímpar</option>
-                </select>
-            </div>
-            <div>
-                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Slave ID</label>
-                <input type="number" id="slaveId" value="1" min="1" max="247">
+                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand to-emerald-500">Centro de Monitoramento EATON</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">MODBUS RTU ANALYSIS ENGINE</p>
             </div>
         </div>
-        <div class="button-group">
-            <button type="button" id="connectBtn" onclick="conectarSerial()">Conectar</button>
-            <button type="button" class="danger" id="disconnectBtn" onclick="desconectarSerial()" style="display: none;">Desconectar</button>
+        
+        <div class="flex gap-3">
+            <div id="serialStatusBadge" class="flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800 transition-all">
+                <span class="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></span> Desconectado
+            </div>
+            <button id="themeToggle" class="flex items-center justify-center p-2 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all text-slate-600 dark:text-slate-300 hover:text-brand dark:hover:text-brand" aria-label="Alternar Tema">
+                <svg id="themeIconDark" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                <svg id="themeIconLight" class="w-5 h-5 block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+            </button>
         </div>
-        <div id="configStatus" style="margin-top: 10px; font-size: 14px; color: var(--muted-text);"></div>
     </div>
 
-    <div class="card">
-        <h3>📤 Upload do Mapa de Registradores</h3>
-        <p style="font-size: 13px; color: var(--muted-text);">Faça o upload de um arquivo JSON contendo address, name, unit e multiplier.</p>
-        <form id="uploadForm">
-            <input type="file" id="mapFile" accept=".json" required>
-            <button type="submit">Carregar Mapa</button>
-        </form>
-        <div id="uploadStatus" style="margin-top: 10px; font-size: 14px; color: var(--value-color);"></div>
+    <!-- KPIs Dinâmicos (Cartões no Topo) -->
+    <div id="kpi-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <!-- Esqueletos iniciais -->
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-col justify-center">
+            <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Aguardando...</p>
+            <div class="flex items-baseline gap-1 mt-1"><span class="text-3xl font-bold text-slate-300 dark:text-slate-600">--</span></div>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-col justify-center">
+            <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Aguardando...</p>
+            <div class="flex items-baseline gap-1 mt-1"><span class="text-3xl font-bold text-slate-300 dark:text-slate-600">--</span></div>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-col justify-center">
+            <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Aguardando...</p>
+            <div class="flex items-baseline gap-1 mt-1"><span class="text-3xl font-bold text-slate-300 dark:text-slate-600">--</span></div>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 flex flex-col justify-center">
+            <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Aguardando...</p>
+            <div class="flex items-baseline gap-1 mt-1"><span class="text-3xl font-bold text-slate-300 dark:text-slate-600">--</span></div>
+        </div>
     </div>
 
-    <div class="card">
-        <h3>Monitoramento</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Parâmetro</th>
-                    <th>Valor</th>
-                    <th>Unidade</th>
-                </tr>
-            </thead>
-            <tbody id="dataTableBody">
-                <tr><td colspan="3" style="text-align: center; color: var(--muted-text);">Aguardando mapa de registradores e conexão serial...</td></tr>
-            </tbody>
-        </table>
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+        
+        <!-- Bloco Esquerdo: Controles & Configurações -->
+        <div class="xl:col-span-1 flex flex-col gap-6">
+            
+            <!-- Configuração Upload Mapa -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </div>
+                    <h3 class="font-bold text-lg">Mapeamento</h3>
+                </div>
+                
+                <form id="uploadForm" class="flex flex-col gap-3">
+                    <label class="block text-sm font-medium text-slate-600 dark:text-slate-300">Carregar Arquivo JSON</label>
+                    <input type="file" id="mapFile" accept=".json" required class="block w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand file:text-white hover:file:bg-blue-700 dark:hover:file:bg-blue-600 transition-colors cursor-pointer border border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-slate-50 dark:bg-slate-900/50">
+                    <button type="submit" class="mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800">Processar Mapa</button>
+                </form>
+                <div id="uploadStatus" class="mt-3 text-sm font-medium"></div>
+            </div>
+
+            <!-- Configuração Serial -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6 flex-1">
+                 <div class="flex items-center gap-3 mb-5">
+                    <div class="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </div>
+                    <h3 class="font-bold text-lg">Conexão Serial</h3>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-5">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Porta (COM)</label>
+                        <input type="text" id="serialPort" value="COM1" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-brand outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Baud Rate</label>
+                        <input type="number" id="baudRate" value="9600" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-brand outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Data Bits</label>
+                        <select id="dataBits" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-brand outline-none transition-all"><option value="7">7</option><option value="8" selected>8</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Stop Bits</label>
+                        <select id="stopBits" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-brand outline-none transition-all"><option value="1" selected>1</option><option value="2">2</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Parity</label>
+                        <select id="parity" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-brand outline-none transition-all"><option value="none" selected>Nenhum</option><option value="even">Par</option><option value="odd">Ímpar</option></select>
+                    </div>
+                    <div>
+                         <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Slave ID</label>
+                         <input type="number" id="slaveId" value="1" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-brand outline-none transition-all">
+                    </div>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button id="connectBtn" onclick="conectarSerial()" class="flex-1 bg-brand hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-slate-800">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Conectar
+                    </button>
+                    <button id="disconnectBtn" onclick="desconectarSerial()" class="hidden flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm items-center justify-center gap-2 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg> Desconectar
+                    </button>
+                </div>
+                <div id="configStatus" class="mt-3 text-sm font-medium text-center"></div>
+            </div>
+        </div>
+
+        <!-- Bloco Direito: Gráfico Real-time -->
+        <div class="xl:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6 flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" /></svg>
+                    </div>
+                    <h3 class="font-bold text-lg">Histórico (Trend)</h3>
+                </div>
+                <div class="text-xs text-slate-500 dark:text-slate-400" id="chartLegend">Gráfico Vivo</div>
+            </div>
+            
+            <div class="relative flex-1 w-full" style="min-height: 280px; max-height: 400px;">
+                <!-- O Canvas vai ocupar o espaço inteiro usando flex -->
+                <canvas id="realtimeChart"></canvas>
+            </div>
+        </div>
     </div>
+
+    <!-- Tabela de Dados Completa -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6 overflow-hidden flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-lg">Registradores Completos</h3>
+            <span class="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md text-slate-500 dark:text-slate-400" id="tableCount">0 Lidos</span>
+        </div>
+        
+        <div class="overflow-x-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold bg-slate-50/50 dark:bg-slate-800/50">
+                        <th class="py-3 px-4 rounded-tl-lg">Parâmetro</th>
+                        <th class="py-3 px-4 text-right">Valor Atual</th>
+                        <th class="py-3 px-4 rounded-tr-lg w-24">Faixa</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableBody" class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    <tr><td colspan="3" class="py-8 text-center text-sm text-slate-400">Aguardando comunicação...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
+
+<!-- Container para Notificações -->
+<div id="toast-container"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    // Gerenciamento de Tema (Dark/Light Mode)
-    const themeToggle = document.getElementById('themeToggle');
-    const themeIcon = document.getElementById('themeIcon');
-    const themeText = themeToggle.querySelector('span:last-child');
-    
-    // Verifica a preferência salva ou o padrão do SO
-    const savedTheme = localStorage.getItem('theme');
-    // Default agora é light
-    const isDark = savedTheme === 'dark';
-    
-    if (isDark) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        themeIcon.textContent = '☀️';
-        themeText.textContent = 'Modo Claro';
-    } else {
-        document.documentElement.removeAttribute('data-theme');
+    // Gerenciador de Avisos Flutuantes (Toasts)
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()" class="ml-4 opacity-70 hover:opacity-100 focus:outline-none">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        `;
+        container.appendChild(toast);
+        // Toca alerta sonoro se for warning ou error
+        if(type === 'error' || type === 'warning') {
+            try {
+                let context = new (window.AudioContext || window.webkitAudioContext)();
+                let osc = context.createOscillator();
+                let gain = context.createGain();
+                osc.connect(gain);
+                gain.connect(context.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, context.currentTime);
+                gain.gain.setValueAtTime(0.1, context.currentTime);
+                osc.start();
+                osc.stop(context.currentTime + 0.1);
+            } catch(e) {}
+        }
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 
-    themeToggle.addEventListener('click', () => {
-        const isDarkNow = document.documentElement.getAttribute('data-theme') === 'dark';
-        if (isDarkNow) {
-            document.documentElement.removeAttribute('data-theme');
-            localStorage.setItem('theme', 'light');
-            themeIcon.textContent = '🌙';
-            themeText.textContent = 'Modo Escuro';
+    // Gerenciamento de Tema
+    const themeToggle = document.getElementById('themeToggle');
+    const iconLight = document.getElementById('themeIconLight');
+    const iconDark = document.getElementById('themeIconDark');
+    const savedTheme = localStorage.getItem('theme');
+    const isDark = savedTheme === 'dark' || (!savedTheme && document.documentElement.classList.contains('dark'));
+    
+    function applyTheme(dark) {
+        if (dark) {
+            document.documentElement.classList.add('dark');
+            iconLight.classList.remove('hidden');
+            iconDark.classList.add('hidden');
         } else {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            localStorage.setItem('theme', 'dark');
-            themeIcon.textContent = '☀️';
-            themeText.textContent = 'Modo Claro';
+            document.documentElement.classList.remove('dark');
+            iconLight.classList.add('hidden');
+            iconDark.classList.remove('hidden');
+        }
+        Chart.defaults.color = dark ? '#94a3b8' : '#64748b'; // Ajusta cor de texto do grafico
+        if(chart) chart.update();
+    }
+    
+    applyTheme(isDark);
+    
+    themeToggle.addEventListener('click', () => {
+        const darken = !document.documentElement.classList.contains('dark');
+        applyTheme(darken);
+        localStorage.setItem('theme', darken ? 'dark' : 'light');
+    });
+
+    // Chart.js Setup
+    const ctx = document.getElementById('realtimeChart').getContext('2d');
+    const maxDataPoints = 30; // Mostrar até N pontos históricos lineares
+    let chartParams = []; // nomes dos parametros graficos
+    
+    // Gradiente para os gráficos
+    const gradientBrand = ctx.createLinearGradient(0, 0, 0, 400);
+    gradientBrand.addColorStop(0, 'rgba(37, 99, 235, 0.4)');   // brand
+    gradientBrand.addColorStop(1, 'rgba(37, 99, 235, 0.0)');
+    
+    const gradientEmerald = ctx.createLinearGradient(0, 0, 0, 400);
+    gradientEmerald.addColorStop(0, 'rgba(16, 185, 129, 0.4)'); // emerald
+    gradientEmerald.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+    let chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [], 
+            datasets: [] // populado dinamicamente via socket
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 }, // tira animacao de redimensionamento para não engasgar
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#fff', padding: 10, cornerRadius: 4 }
+            },
+            scales: {
+                x: { 
+                    grid: { display: false, drawBorder: false },
+                    ticks: { maxTicksLimit: 10, autoSkip: true }
+                },
+                y: { 
+                    grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false },
+                    beginAtZero: false 
+                }
+            }
         }
     });
 
-    // Gerenciamento do Upload
+    // Helper functions
+    function updateSerialBadge(connected) {
+        const badge = document.getElementById('serialStatusBadge');
+        if (connected) {
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Ativo`;
+            badge.className = "flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-400 dark:border-emerald-800 transition-all";
+            document.getElementById('connectBtn').classList.add('hidden');
+            document.getElementById('disconnectBtn').classList.remove('hidden');
+            document.getElementById('disconnectBtn').classList.add('flex');
+        } else {
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span> Off`;
+            badge.className = "flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/40 dark:text-red-400 dark:border-red-800 transition-all";
+            document.getElementById('connectBtn').classList.remove('hidden');
+            document.getElementById('disconnectBtn').classList.add('hidden');
+            document.getElementById('disconnectBtn').classList.remove('flex');
+        }
+    }
+
+    // Formularios (Upload e Serial)
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const fileInput = document.getElementById('mapFile');
         const formData = new FormData();
         formData.append('mapFile', fileInput.files[0]);
+        const status = document.getElementById('uploadStatus');
 
         try {
+            status.innerText = "Processando..."; status.className = "mt-3 text-sm font-medium text-amber-500";
             const response = await fetch('/upload-map', { method: 'POST', body: formData });
             const result = await response.json();
-            document.getElementById('uploadStatus').innerText = result.message;
+            
+            status.innerText = result.message;
             if (result.success) {
-                updateMapStatus(true);
+                status.className = "mt-3 text-sm font-medium text-emerald-500";
+                showToast("Mapa Atualizado com sucesso!", "success");
+            } else {
+                status.className = "mt-3 text-sm font-medium text-red-500";
+                showToast(result.message, "error");
             }
         } catch (error) {
-            document.getElementById('uploadStatus').innerText = 'Erro ao enviar o arquivo.';
-            document.getElementById('uploadStatus').style.color = 'red';
+            status.innerText = 'Erro ao enviar o arquivo.';
+            status.className = "mt-3 text-sm font-medium text-red-500";
         }
     });
 
-    // Função para atualizar status do mapa
-    function updateMapStatus(loaded) {
-        const badge = document.getElementById('mapStatus');
-        if (loaded) {
-            badge.innerText = '✓ Carregado';
-            badge.classList.remove('status-disconnected');
-            badge.classList.add('status-connected');
-        } else {
-            badge.innerText = '✗ Não Carregado';
-            badge.classList.remove('status-connected');
-            badge.classList.add('status-disconnected');
-        }
-    }
-
-    // Função para atualizar status da conexão serial
-    function updateSerialStatus(connected) {
-        const badge = document.getElementById('serialStatus');
-        if (connected) {
-            badge.innerText = '✓ Conectado';
-            badge.classList.remove('status-disconnected', 'status-pending');
-            badge.classList.add('status-connected');
-        } else {
-            badge.innerText = '✗ Desconectado';
-            badge.classList.remove('status-connected', 'status-pending');
-            badge.classList.add('status-disconnected');
-        }
-    }
-
-    // Recepção dos Dados em Tempo Real
-    const socket = io();
-    const tbody = document.getElementById('dataTableBody');
-
-    socket.on('modbus-data', (data) => {
-        tbody.innerHTML = ''; // Limpa a tabela
-
-        data.forEach(item => {
-            const tr = document.createElement('tr');
-
-            const tdName = document.createElement('td');
-            tdName.textContent = item.name;
-
-            const tdValue = document.createElement('td');
-            tdValue.className = 'value';
-            tdValue.textContent = item.value;
-
-            const tdUnit = document.createElement('td');
-            tdUnit.textContent = item.unit;
-
-            tr.append(tdName, tdValue, tdUnit);
-            tbody.appendChild(tr);
-        });
-    });
-
-    // Recepção de erros de reconexão
-    socket.on('serial-error', (data) => {
-        document.getElementById('configStatus').innerText = data.message;
-        document.getElementById('configStatus').style.color = '#f44336';
-    });
-
-    // Função para conectar a serial com os parâmetros configurados
     async function conectarSerial() {
         const config = {
             port: document.getElementById('serialPort').value,
@@ -296,73 +373,186 @@
             parity: document.getElementById('parity').value,
             slaveId: parseInt(document.getElementById('slaveId').value)
         };
-
+        const status = document.getElementById('configStatus');
         try {
-            document.getElementById('configStatus').innerText = 'Conectando...';
-            document.getElementById('configStatus').style.color = '#ff9800';
-
-            const response = await fetch('/api/connect-serial', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            });
-
+            status.innerText = 'Acionando rádio...'; status.className = "mt-3 text-sm font-medium text-amber-500 text-center";
+            const response = await fetch('/api/connect-serial', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
             const result = await response.json();
-
+            status.innerText = result.message;
             if (result.success) {
-                document.getElementById('configStatus').innerText = 'Conectado com sucesso!';
-                document.getElementById('configStatus').style.color = '#10b981'; // Green block
-                document.getElementById('connectBtn').style.display = 'none';
-                document.getElementById('disconnectBtn').style.display = 'flex';
+                status.className = "mt-3 text-sm font-medium text-emerald-500 text-center";
+                showToast("Conexão estabelecida", "success");
             } else {
-                document.getElementById('configStatus').innerText = result.message || 'Erro ao conectar.';
-                document.getElementById('configStatus').style.color = '#ef4444'; // Red block
+                status.className = "mt-3 text-sm font-medium text-red-500 text-center";
+                showToast(result.message, "error");
             }
-        } catch (error) {
-            document.getElementById('configStatus').innerText = 'Erro na requisição: ' + error.message;
-            document.getElementById('configStatus').style.color = '#ef4444'; // Red config error
+        } catch (e) {
+            status.innerText = 'Falha na rede: ' + e.message;
+            status.className = "mt-3 text-sm font-medium text-red-500 text-center";
         }
     }
 
-    // Função para desconectar a serial
     async function desconectarSerial() {
+        const status = document.getElementById('configStatus');
         try {
-            document.getElementById('configStatus').innerText = 'Desconectando...';
-            document.getElementById('configStatus').style.color = '#f59e0b'; // color warning orange
-
             const response = await fetch('/api/disconnect-serial', { method: 'POST' });
             const result = await response.json();
-
-            if (result.success) {
-                document.getElementById('configStatus').innerText = 'Desconectado.';
-                document.getElementById('configStatus').style.color = 'var(--muted-text)';
-                document.getElementById('connectBtn').style.display = 'flex';
-                document.getElementById('disconnectBtn').style.display = 'none';
-            } else {
-                document.getElementById('configStatus').innerText = result.message || 'Erro ao desconectar.';
-                document.getElementById('configStatus').style.color = '#ef4444';
-            }
-        } catch (error) {
-            document.getElementById('configStatus').innerText = 'Erro na requisição: ' + error.message;
-            document.getElementById('configStatus').style.color = '#ef4444';
+            status.innerText = result.message;
+            status.className = result.success ? "mt-3 text-sm font-medium text-slate-500 text-center" : "mt-3 text-sm font-medium text-red-500 text-center";
+        } catch (e) {
+            status.innerText = 'Erro ao desconectar.';
         }
     }
 
-    // Recepção de status da conexão serial
-    socket.on('serial-status', (status) => {
-        updateSerialStatus(status.connected);
-        if (status.connected) {
-            document.getElementById('connectBtn').style.display = 'none';
-            document.getElementById('disconnectBtn').style.display = 'flex';
-            document.getElementById('configStatus').innerText = 'Conectado com sucesso!';
-            document.getElementById('configStatus').style.color = '#10b981'; // Green Block
-        } else {
-            document.getElementById('connectBtn').style.display = 'flex';
-            document.getElementById('disconnectBtn').style.display = 'none';
-            document.getElementById('configStatus').innerText = 'Desconectado.';
-            document.getElementById('configStatus').style.color = 'var(--muted-text)';
+    // Lógica em Tempo Real WebSocket
+    const socket = io();
+    const tbody = document.getElementById('dataTableBody');
+    const kpiContainer = document.getElementById('kpi-container');
+    
+    // Armazena alarmes já notificados para não sobrecarregar
+    const activeAlarms = new Set();
+
+    socket.on('modbus-data', (data) => {
+        if (!data || data.length === 0) return;
+        
+        // --- 1. Atualizar Tabela e Alarmes ---
+        tbody.innerHTML = '';
+        document.getElementById('tableCount').innerText = `${data.length} Lidos`;
+        
+        data.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            tr.className = "group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors";
+            
+            const numValue = parseFloat(item.value);
+            let stateClass = "";
+            let stateText = "<span class='text-emerald-500 flex items-center'><span class='w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2'></span> OK</span>";
+            let isAlarm = false;
+
+            // Checa Limites (Alarme!) se existirem injetados no objeto (requer atualizar o backend ou enviar mockado via front)
+            // Como o mapa json tem "min" e "max", recebemos do item se o envio prever eles.
+            // Para simplificar a demo estendida, verificamos se item.min ou .max existe na origem.
+            if (item.value !== '---' && !isNaN(numValue)) {
+                if (item.min !== undefined && numValue < item.min) { isAlarm = true; stateText = `Baixo (<${item.min})`; }
+                if (item.max !== undefined && numValue > item.max) { isAlarm = true; stateText = `Alto (>${item.max})`; }
+            }
+
+            if (isAlarm) {
+                stateClass = "animate-flash-red";
+                stateText = `<span class='text-red-500 flex items-center font-bold'><span class='w-1.5 h-1.5 rounded-full bg-red-500 mr-2 animate-pulse'></span> ALARME</span>`;
+                
+                if (!activeAlarms.has(item.name)) {
+                    showToast(`⚠️ Alerta Crítico: O parâmetro "${item.name}" excedeu o limite seguro (${item.value}${item.unit})`, 'error');
+                    activeAlarms.add(item.name);
+                }
+            } else {
+                activeAlarms.delete(item.name); // Recuperou
+            }
+
+            tr.innerHTML = `
+                <td class="py-4 px-4 font-medium text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">${item.name}</td>
+                <td class="py-4 px-4 text-right border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">
+                    <span class="text-xl font-bold font-mono ${isAlarm ? 'text-red-500' : 'text-slate-700 dark:text-white'}">${item.value}</span>
+                    <span class="text-xs ml-1 text-slate-400">${item.unit}</span>
+                </td>
+                <td class="py-4 px-4 text-xs font-semibold border-b border-slate-100 dark:border-slate-700/50 ${stateClass}">${stateText}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // --- 2. Atualizar Cartões KPI ---
+        // Pega os 4 primeiros itens
+        const kpis = data.slice(0, 4);
+        kpiContainer.innerHTML = '';
+        kpis.forEach(kpi => {
+            let numValue = parseFloat(kpi.value);
+            let isAlarm = false;
+            
+            if (kpi.value !== '---' && !isNaN(numValue)) {
+                if ((kpi.min !== undefined && numValue < kpi.min) || (kpi.max !== undefined && numValue > kpi.max)) isAlarm = true;
+            }
+            
+            const pClass = isAlarm 
+                ? "bg-red-50 dark:bg-red-900/20 shadow-md border-red-200 dark:border-red-800/50 animate-pulse" 
+                : "bg-white dark:bg-slate-800 shadow-sm border-slate-100 dark:border-slate-700/50";
+                
+            const titleClass = isAlarm ? "text-red-500" : "text-slate-400 dark:text-slate-500";
+            const valClass = isAlarm ? "text-red-600 dark:text-red-400" : "text-brand dark:text-blue-400 font-mono";
+
+            kpiContainer.innerHTML += `
+                <div class="p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-center ${pClass}">
+                    <p class="text-xs font-bold uppercase tracking-widest mb-1 ${titleClass} truncate" title="${kpi.name}">${kpi.name}</p>
+                    <div class="flex items-baseline gap-1 mt-1">
+                        <span class="text-3xl font-black ${valClass}">${kpi.value}</span>
+                        <span class="text-sm font-semibold opacity-60 ${valClass}">${kpi.unit}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        // --- 3. Atualizar Gráfico Histórico ---
+        // Vamos extrair 2 parâmetros para desenhar. Ex: os 2 primeiros.
+        if (data.length >= 1) {
+            const timeLabel = new Date().toLocaleTimeString([], { hour12: false, second: '2-digit', minute: '2-digit', hour: '2-digit' });
+            chart.data.labels.push(timeLabel);
+            
+            // Inicializa datasets se vazio
+            if(chart.data.datasets.length === 0) {
+                // Dataset 1
+                chart.data.datasets.push({
+                    label: data[0].name,
+                    data: [],
+                    borderColor: '#2563eb', // brand
+                    backgroundColor: gradientBrand,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    fill: true,
+                    tension: 0.3
+                });
+                // Dataset 2 (se existir)
+                if(data.length > 1) {
+                    chart.data.datasets.push({
+                        label: data[1].name,
+                        data: [],
+                        borderColor: '#10b981', // emerald
+                        backgroundColor: gradientEmerald,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: true,
+                        tension: 0.3
+                    });
+                }
+                const chnames = [data[0].name];
+                if(data[1]) chnames.push(data[1].name);
+                document.getElementById('chartLegend').innerHTML = `<span class="px-2 py-0.5 rounded mr-2 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">▪ ${data[0].name}</span>` + 
+                (data[1] ? `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">▪ ${data[1].name}</span>` : '');
+            }
+
+            // Alimentar Ponto
+            chart.data.datasets[0].data.push(parseFloat(data[0].value) || 0);
+            if(chart.data.datasets[1] && data.length > 1) {
+                chart.data.datasets[1].data.push(parseFloat(data[1].value) || 0);
+            }
+
+            // Exclui pto velho (sliding window)
+            if (chart.data.labels.length > maxDataPoints) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(dst => dst.data.shift());
+            }
+            
+            chart.update('none'); // Update sem animacao pra performance real-time
         }
     });
+
+    socket.on('serial-status', (status) => updateSerialBadge(status.connected));
+    
+    socket.on('serial-error', (data) => {
+        showToast(data.message, "warning");
+        const status = document.getElementById('configStatus');
+        status.innerText = data.message;
+        status.className = "mt-3 text-sm font-medium text-amber-500 text-center";
+    });
+
 </script>
 
 </body>

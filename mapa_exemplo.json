@@ -1,5 +1,6 @@
 [
-  { "address": 0, "name": "Tensão de Entrada", "unit": "V", "multiplier": 0.1 },
-  { "address": 1, "name": "Carga da Bateria", "unit": "%", "multiplier": 1 },
-  { "address": 2, "name": "Temperatura Interna", "unit": "°C", "multiplier": 0.1 }
+  { "address": 0, "name": "Tensão de Entrada", "unit": "V", "multiplier": 0.1, "min": 190.0, "max": 240.0 },
+  { "address": 1, "name": "Carga da Bateria", "unit": "%", "multiplier": 1, "min": 20.0, "max": 100.0 },
+  { "address": 2, "name": "Temperatura Interna", "unit": "°C", "multiplier": 0.1, "max": 45.0 },
+  { "address": 3, "name": "Corrente Total", "unit": "A", "multiplier": 0.01, "max": 150.0 }
 ]
