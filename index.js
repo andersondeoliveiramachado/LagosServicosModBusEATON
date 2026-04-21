@@ -140,6 +140,8 @@ app.post('/upload-map', upload.single('mapFile'), (req, res) => {
         
         console.log('✓ Novo mapa de registradores carregado:', registerMap.length, 'itens.');
         res.json({ success: true, message: `Mapa carregado com sucesso! (${registerMap.length} registradores)` });
+        
+        io.emit('map-loaded', registerMap);
     } catch (error) {
         console.error('Erro ao processar arquivo:', error);
         res.status(500).json({ success: false, message: 'Erro interno ao processar o arquivo.' });
@@ -404,6 +406,9 @@ io.on('connection', (socket) => {
     console.log('→ Novo cliente conectado na Dashboard');
     // Envia o status atual da conexão serial para o novo cliente
     socket.emit('serial-status', { connected: isConnected });
+    if (registerMap && registerMap.length > 0) {
+        socket.emit('map-loaded', registerMap);
+    }
 });
 
 // ============================================================

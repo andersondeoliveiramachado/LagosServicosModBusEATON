@@ -412,7 +412,7 @@
     // Armazena alarmes já notificados para não sobrecarregar
     const activeAlarms = new Set();
 
-    socket.on('modbus-data', (data) => {
+    function renderDashboardData(data) {
         if (!data || data.length === 0) return;
         
         // --- 1. Atualizar Tabela e Alarmes ---
@@ -428,10 +428,9 @@
             let stateText = "<span class='text-emerald-500 flex items-center'><span class='w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2'></span> OK</span>";
             let isAlarm = false;
 
-            // Checa Limites (Alarme!) se existirem injetados no objeto (requer atualizar o backend ou enviar mockado via front)
-            // Como o mapa json tem "min" e "max", recebemos do item se o envio prever eles.
-            // Para simplificar a demo estendida, verificamos se item.min ou .max existe na origem.
-            if (item.value !== '---' && !isNaN(numValue)) {
+            if (item.value === '---') {
+                stateText = "<span class='text-slate-400'>Aguardando...</span>";
+            } else if (!isNaN(numValue)) {
                 if (item.min !== undefined && numValue < item.min) { isAlarm = true; stateText = `Baixo (<${item.min})`; }
                 if (item.max !== undefined && numValue > item.max) { isAlarm = true; stateText = `Alto (>${item.max})`; }
             }
@@ -460,7 +459,6 @@
         });
 
         // --- 2. Atualizar Cartões KPI ---
-        // Pega os 4 primeiros itens
         const kpis = data.slice(0, 4);
         kpiContainer.innerHTML = '';
         kpis.forEach(kpi => {
@@ -476,7 +474,7 @@
                 : "bg-white dark:bg-slate-800 shadow-sm border-slate-100 dark:border-slate-700/50";
                 
             const titleClass = isAlarm ? "text-red-500" : "text-slate-400 dark:text-slate-500";
-            const valClass = isAlarm ? "text-red-600 dark:text-red-400" : "text-brand dark:text-blue-400 font-mono";
+            const valClass = isAlarm ? "text-red-600 dark:text-red-400" : (kpi.value === '---' ? "text-slate-300 dark:text-slate-600" : "text-brand dark:text-blue-400 font-mono");
 
             kpiContainer.innerHTML += `
                 <div class="p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-center ${pClass}">
@@ -490,58 +488,51 @@
         });
 
         // --- 3. Atualizar Gráfico Histórico ---
-        // Vamos extrair 2 parâmetros para desenhar. Ex: os 2 primeiros.
-        if (data.length >= 1) {
+        if (data.length >= 1 && data[0].value !== '---') { // Só plota se houver dado numérico
             const timeLabel = new Date().toLocaleTimeString([], { hour12: false, second: '2-digit', minute: '2-digit', hour: '2-digit' });
             chart.data.labels.push(timeLabel);
             
-            // Inicializa datasets se vazio
             if(chart.data.datasets.length === 0) {
-                // Dataset 1
                 chart.data.datasets.push({
-                    label: data[0].name,
-                    data: [],
-                    borderColor: '#2563eb', // brand
-                    backgroundColor: gradientBrand,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    fill: true,
-                    tension: 0.3
+                    label: data[0].name, data: [], borderColor: '#2563eb', backgroundColor: gradientBrand,
+                    borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, fill: true, tension: 0.3
                 });
-                // Dataset 2 (se existir)
                 if(data.length > 1) {
                     chart.data.datasets.push({
-                        label: data[1].name,
-                        data: [],
-                        borderColor: '#10b981', // emerald
-                        backgroundColor: gradientEmerald,
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: true,
-                        tension: 0.3
+                        label: data[1].name, data: [], borderColor: '#10b981', backgroundColor: gradientEmerald,
+                        borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3
                     });
                 }
-                const chnames = [data[0].name];
-                if(data[1]) chnames.push(data[1].name);
                 document.getElementById('chartLegend').innerHTML = `<span class="px-2 py-0.5 rounded mr-2 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">▪ ${data[0].name}</span>` + 
                 (data[1] ? `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">▪ ${data[1].name}</span>` : '');
             }
 
-            // Alimentar Ponto
             chart.data.datasets[0].data.push(parseFloat(data[0].value) || 0);
             if(chart.data.datasets[1] && data.length > 1) {
                 chart.data.datasets[1].data.push(parseFloat(data[1].value) || 0);
             }
 
-            // Exclui pto velho (sliding window)
             if (chart.data.labels.length > maxDataPoints) {
                 chart.data.labels.shift();
                 chart.data.datasets.forEach(dst => dst.data.shift());
             }
             
-            chart.update('none'); // Update sem animacao pra performance real-time
+            chart.update('none');
         }
+    }
+
+    socket.on('modbus-data', renderDashboardData);
+
+    socket.on('map-loaded', (map) => {
+        // Gera dados fake ('---') baseados no mapa para desenhar a lista/KPIs iniciais vazios
+        const initialFakeData = map.map(item => ({
+            name: item.name,
+            value: '---',
+            unit: item.unit,
+            min: item.min,
+            max: item.max
+        }));
+        renderDashboardData(initialFakeData);
     });
 
     socket.on('serial-status', (status) => updateSerialBadge(status.connected));
