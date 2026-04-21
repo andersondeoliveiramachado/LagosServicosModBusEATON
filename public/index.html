@@ -790,21 +790,36 @@
             return;
         }
 
-        // Descobre a falha campeã
-        let maxFaults = 0;
-        let worstParam = '';
+        // Ranking de falhas
+        let rankArray = [];
         for (let name in alarmStats) {
-            if (alarmStats[name] > maxFaults) {
-                maxFaults = alarmStats[name];
-                worstParam = name;
-            }
+            rankArray.push({ name: name, count: alarmStats[name] });
         }
+        rankArray.sort((a, b) => b.count - a.count);
+
+        let worstParam = rankArray[0].name;
+        let maxFaults = rankArray[0].count;
 
         const riskPercent = Math.min(99, Math.round((maxFaults / Math.max(10, totalAlarms)) * 100) + (maxFaults*5));
 
+        // Construir visual secundário de Ranking
+        let rankHtml = '';
+        if (rankArray.length > 1) {
+            rankHtml += '<div class="mt-3 flex flex-col gap-1.5"><span class="text-[8px] uppercase tracking-widest text-slate-500 font-bold mb-0.5">Top Outras Ocorrências</span>';
+            for (let i = 1; i < Math.min(4, rankArray.length); i++) {
+                rankHtml += `
+                    <div class="flex justify-between items-center bg-slate-800/30 px-2 py-1.5 rounded-lg border border-slate-700/30">
+                        <span class="text-xs text-slate-300 truncate max-w-[70%] font-medium"><span class="text-slate-500 mr-1 opacity-70">${i+1}º</span>${rankArray[i].name}</span>
+                        <span class="text-[10px] font-black text-red-400 bg-red-400/10 px-1.5 rounded-md">${rankArray[i].count} falhas</span>
+                    </div>
+                `;
+            }
+            rankHtml += '</div>';
+        }
+
         content.innerHTML = `
             <div class="flex flex-col gap-1">
-                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Ofensor Principal</span>
+                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold text-red-500/80">1º Ofensor Principal</span>
                 <p class="text-sm font-semibold text-red-400 line-clamp-1" title="${worstParam}">${worstParam}</p>
             </div>
             
@@ -818,11 +833,13 @@
                 </div>
             </div>
 
-            <div class="mt-2 bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg flex gap-3 animate-fade-in">
+            ${rankHtml}
+
+            <div class="mt-3 bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg flex gap-3 animate-fade-in shadow-inner">
                 <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 <p class="text-xs text-amber-200/90 leading-relaxed font-medium">
                     <strong class="text-amber-400 uppercase tracking-wide text-[10px] block mb-1">Recomendação da IA:</strong>
-                    Instabilidade progressiva deduzida. Solicita-se inspeção física preventiva dos cabos/sensores na próxima parada operacional para mitigar riscos de blecaute ou quebra da placa originária.
+                    Instabilidade progressiva deduzida. Solicita-se inspeção física preventiva na próxima parada para mitigar quebra estrutural.
                 </p>
             </div>
         `;
