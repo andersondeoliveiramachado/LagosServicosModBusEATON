@@ -45,6 +45,7 @@ const upload = multer({
 const client = new ModbusRTU();
 let isConnected = false;
 let registerMap = [];
+let currentMapFileName = 'mapa_exemplo.json';
 let pollingInterval = null;
 
 // Controle de reconexão
@@ -137,14 +138,52 @@ app.post('/upload-map', upload.single('mapFile'), (req, res) => {
         }
 
         registerMap = parsed;
+        currentMapFileName = req.file.originalname || currentMapFileName;
         
-        console.log('✓ Novo mapa de registradores carregado:', registerMap.length, 'itens.');
+        console.log(`✓ Novo mapa de registradores carregado (${currentMapFileName}):`, registerMap.length, 'itens.');
         res.json({ success: true, message: `Mapa carregado com sucesso! (${registerMap.length} registradores)` });
         
         io.emit('map-loaded', registerMap);
     } catch (error) {
         console.error('Erro ao processar arquivo:', error);
         res.status(500).json({ success: false, message: 'Erro interno ao processar o arquivo.' });
+    }
+});
+
+// ============================================================
+// Rota para Atualizar Limites (Edição Direta)
+// ============================================================
+app.post('/api/update-limits', (req, res) => {
+    try {
+        const newLimits = req.body;
+        
+        if (!Array.isArray(newLimits)) {
+            return res.status(400).json({ success: false, message: 'Formato de limites inválido. Esperado array.' });
+        }
+
+        // Aplica os limites na memória
+        newLimits.forEach(update => {
+            const reg = registerMap.find(r => r.address === parseInt(update.address));
+            if (reg) {
+                if (update.min !== '' && !isNaN(parseFloat(update.min))) reg.min = parseFloat(update.min);
+                else delete reg.min;
+                
+                if (update.max !== '' && !isNaN(parseFloat(update.max))) reg.max = parseFloat(update.max);
+                else delete reg.max;
+            }
+        });
+
+        // Salvar no arquivo físico atual
+        const filePath = path.join(__dirname, currentMapFileName);
+        fs.writeFileSync(filePath, JSON.stringify(registerMap, null, 2), 'utf-8');
+
+        // Notifica todos os painéis abertos para recarregarem os limites atualizados
+        io.emit('map-loaded', registerMap);
+
+        res.json({ success: true, message: `Limites gravados com sucesso em "${currentMapFileName}"!` });
+    } catch (e) {
+        console.error('Erro ao salvar limites:', e);
+        res.status(500).json({ success: false, message: 'Falha de I/O ao gravar no arquivo JSON.' });
     }
 });
 

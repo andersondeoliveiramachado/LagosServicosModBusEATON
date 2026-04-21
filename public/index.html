@@ -193,7 +193,13 @@
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/50 p-6 overflow-hidden flex flex-col">
         <div class="flex justify-between items-center mb-4">
             <h3 class="font-bold text-lg">Registradores Completos</h3>
-            <span class="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md text-slate-500 dark:text-slate-400" id="tableCount">0 Lidos</span>
+            <div class="flex items-center gap-3">
+                <button onclick="abrirModalLimites()" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/50 rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg> 
+                    Ajustar Limites
+                </button>
+                <span class="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md text-slate-500 dark:text-slate-400" id="tableCount">0 Lidos</span>
+            </div>
         </div>
         
         <div class="overflow-x-auto custom-scrollbar">
@@ -216,6 +222,42 @@
 
 <!-- Container para Notificações -->
 <div id="toast-container"></div>
+
+<!-- Modal Edição de Limites -->
+<div id="limitsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-3xl flex flex-col max-h-[90vh]">
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800 rounded-t-2xl">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                Ajuste Fino de Alarmes
+            </h3>
+            <button onclick="fecharModalLimites()" class="text-slate-400 hover:text-red-500 transition-colors">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        
+        <div class="p-6 overflow-y-auto flex-1 custom-scrollbar">
+            <p class="text-sm text-slate-500 mb-4 block">Defina os valores mínimos (Min) e máximos (Max) para disparar advertências visuais e sonoras na tabela. Deixe em branco caso a faixa seja livre. <br><span class="font-bold text-slate-700 dark:text-slate-300">A gravação sobrescreverá o arquivo físico JSON fonte.</span></p>
+            
+            <div class="grid grid-cols-12 gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-2">
+                <div class="col-span-2 md:col-span-1">TAG</div>
+                <div class="col-span-10 md:col-span-5">Parâmetro</div>
+                <div class="col-span-6 md:col-span-3 mt-2 md:mt-0">Mínimo</div>
+                <div class="col-span-6 md:col-span-3 mt-2 md:mt-0">Máximo</div>
+            </div>
+            <form id="limitsForm" class="flex flex-col gap-3">
+                <div id="limitsContainer"></div>
+            </form>
+        </div>
+        
+        <div class="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800 rounded-b-2xl">
+            <button onclick="fecharModalLimites()" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Cancelar</button>
+            <button onclick="slvLimites()" id="btnSaveLimits" class="px-5 py-2 rounded-lg text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-2 transition-colors">
+                Gravar no Arquivo
+            </button>
+        </div>
+    </div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -632,6 +674,82 @@
             }, 1000);
             
             showToast("Modo Simulação Iniciado! Gerando dados virtuais...", "success");
+        }
+    }
+
+    // --- Modal Lógica de Ajuste de Limites ---
+    
+    function abrirModalLimites() {
+        if (!localMapMemory || localMapMemory.length === 0) {
+            showToast("⚠️ Nenhum mapa carregado. Faça o upload primeiro.", "warning");
+            return;
+        }
+        
+        const container = document.getElementById('limitsContainer');
+        container.innerHTML = '';
+        
+        localMapMemory.forEach(reg => {
+            container.innerHTML += `
+                <div class="grid grid-cols-12 gap-2 md:gap-3 items-center bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 p-3 rounded-lg group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
+                    <div class="col-span-2 md:col-span-1 text-center font-mono text-xs text-slate-400 bg-slate-200 dark:bg-slate-800 rounded p-1">#${reg.address}</div>
+                    <div class="col-span-10 md:col-span-5 font-semibold text-sm truncate" title="${reg.name}">${reg.name} <span class="text-xs text-slate-500 font-normal ml-1">(${reg.unit})</span></div>
+                    <div class="col-span-6 md:col-span-3">
+                        <div class="flex items-center gap-1"><span class="text-xs text-slate-400 block md:hidden">MIN:</span>
+                        <input type="number" step="any" class="limit-input w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none transition-colors" data-address="${reg.address}" data-type="min" value="${reg.min !== undefined ? reg.min : ''}" placeholder="Mínimo seguro">
+                        </div>
+                    </div>
+                    <div class="col-span-6 md:col-span-3">
+                        <div class="flex items-center gap-1"><span class="text-xs text-slate-400 block md:hidden">MAX:</span>
+                        <input type="number" step="any" class="limit-input w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none transition-colors" data-address="${reg.address}" data-type="max" value="${reg.max !== undefined ? reg.max : ''}" placeholder="Máximo seguro">
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        document.getElementById('limitsModal').classList.remove('hidden');
+    }
+
+    function fecharModalLimites() {
+        document.getElementById('limitsModal').classList.add('hidden');
+    }
+
+    async function slvLimites() {
+        const btn = document.getElementById('btnSaveLimits');
+        btn.innerHTML = `<span class="animate-pulse">Gravando...</span>`;
+        btn.disabled = true;
+
+        const limitInputs = document.querySelectorAll('.limit-input');
+        const grouped = {};
+        
+        limitInputs.forEach(input => {
+            const addr = input.getAttribute('data-address');
+            const type = input.getAttribute('data-type');
+            if(!grouped[addr]) grouped[addr] = { address: addr };
+            grouped[addr][type] = input.value;
+        });
+        
+        const payload = Object.values(grouped);
+
+        try {
+            const response = await fetch('/api/update-limits', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload) 
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(result.message, "success");
+                fecharModalLimites();
+            } else {
+                showToast(result.message, "error");
+            }
+        } catch (e) {
+            showToast("Erro ao contatar API.", "error");
+        } finally {
+            btn.innerHTML = `Gravar no Arquivo`;
+            btn.disabled = false;
         }
     }
 
