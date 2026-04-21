@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lagos Serviços - Dashboard Modbus RS232</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --text-color: #2c3e50;
+            --card-bg: #ffffff;
+            --card-border: #e1e8ed;
+            --input-bg: #ffffff;
+            --input-border: #cbd5e1;
+            --input-text: #2c3e50;
+            --input-focus-shadow: rgba(0,123,255,0.25);
+            --th-color: #64748b;
+            --td-border: #e1e8ed;
+            --status-label: #64748b;
+            --btn-bg: #007bff;
+            --btn-hover: #0056b3;
+            --value-color: #10b981; 
+            --muted-text: #64748b;
+            --header-filter: grayscale(0%);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --text-color: #ffffff;
+            --card-bg: #1e1e1e;
+            --card-border: #333333;
+            --input-bg: #2a2a2a;
+            --input-border: #444444;
+            --input-text: #ffffff;
+            --input-focus-shadow: rgba(0,123,255,0.4);
+            --th-color: #888888;
+            --td-border: #333333;
+            --status-label: #888888;
+            --btn-bg: #007bff;
+            --btn-hover: #0056b3;
+            --value-color: #00e676; 
+            --muted-text: #aaaaaa;
+            --header-filter: grayscale(20%) brightness(0.9);
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        .container { max-width: 800px; margin: auto; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--card-border); transition: background-color 0.3s, border-color 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        input[type="file"] { margin-bottom: 10px; color: var(--text-color); }
+        button { background: var(--btn-bg); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; font-weight: 500; }
+        button:hover { background: var(--btn-hover); }
+        button:active { transform: scale(0.98); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--td-border); }
+        th { color: var(--th-color); text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        .value { font-weight: bold; color: var(--value-color); font-size: 18px; }
+        .status-bar { display: flex; gap: 20px; margin-bottom: 20px; }
+        .status-item { flex: 1; padding: 15px; border-radius: 4px; border: 1px solid var(--card-border); background: var(--card-bg); transition: background-color 0.3s, border-color 0.3s; }
+        .status-label { font-size: 12px; color: var(--status-label); text-transform: uppercase; margin-bottom: 5px; font-weight: 600; }
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .status-connected { background: #10b981; color: #fff; }
+        .status-disconnected { background: #ef4444; color: #fff; }
+        .status-pending { background: #f59e0b; color: #fff; }
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        input[type="text"], input[type="number"], select { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--input-text); border-radius: 4px; font-size: 14px; box-sizing: border-box; transition: background-color 0.3s, border-color 0.3s, color 0.3s; }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px var(--input-focus-shadow); }
+        .button-group { display: flex; gap: 10px; }
+        .button-group button { flex: 1; }
+        button.danger { background: #ef4444; }
+        button.danger:hover { background: #dc2626; }
+        
+        /* Theme toggle button specific styles */
+        .theme-toggle { background: transparent; color: var(--text-color); border: 1px solid var(--card-border); padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-radius: 20px; font-size: 14px; }
+        .theme-toggle:hover { background: var(--card-border); }
+        .logo-img { transition: filter 0.3s; filter: var(--header-filter); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="logo.png" alt="Logo Lagos Serviços" class="logo-img" style="height: 50px; border-radius: 4px;">
+            <h2 style="margin: 0; font-size: 22px;">📡 Dashboard Modbus</h2>
+        </div>
+        <button id="themeToggle" class="theme-toggle" aria-label="Alternar Tema">
+            <span id="themeIcon">🌙</span> <span>Modo Escuro</span>
+        </button>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-item">
+            <div class="status-label">🗂️ Mapa de Registradores</div>
+            <div><span class="status-badge status-disconnected" id="mapStatus">Não Carregado</span></div>
+        </div>
+        <div class="status-item">
+            <div class="status-label">📶 Conexão Serial</div>
+            <div><span class="status-badge status-pending" id="serialStatus">Conectando...</span></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>⚙️ Configuração da Conexão Serial</h3>
+        <p style="font-size: 13px; color: var(--muted-text);">Configure os parâmetros da porta serial para conectar ao dispositivo Modbus.</p>
+        <div class="config-grid">
+            <div>
+                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Porta Serial</label>
+                <input type="text" id="serialPort" placeholder="COM1" value="COM1">
+            </div>
+            <div>
+                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Baud Rate</label>
+                <input type="number" id="baudRate" value="9600" min="1200" max="115200">
+            </div>
+            <div>
+                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Data Bits</label>
+                <select id="dataBits">
+                    <option value="7">7</option>
+                    <option value="8" selected>8</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Stop Bits</label>
+                <select id="stopBits">
+                    <option value="1" selected>1</option>
+                    <option value="2">2</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Parity</label>
+                <select id="parity">
+                    <option value="none" selected>Nenhuma</option>
+                    <option value="even">Par</option>
+                    <option value="odd">Ímpar</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size: 12px; color: var(--status-label); display: block; margin-bottom: 5px;">Slave ID</label>
+                <input type="number" id="slaveId" value="1" min="1" max="247">
+            </div>
+        </div>
+        <div class="button-group">
+            <button type="button" id="connectBtn" onclick="conectarSerial()">Conectar</button>
+            <button type="button" class="danger" id="disconnectBtn" onclick="desconectarSerial()" style="display: none;">Desconectar</button>
+        </div>
+        <div id="configStatus" style="margin-top: 10px; font-size: 14px; color: var(--muted-text);"></div>
+    </div>
+
+    <div class="card">
+        <h3>📤 Upload do Mapa de Registradores</h3>
+        <p style="font-size: 13px; color: var(--muted-text);">Faça o upload de um arquivo JSON contendo address, name, unit e multiplier.</p>
+        <form id="uploadForm">
+            <input type="file" id="mapFile" accept=".json" required>
+            <button type="submit">Carregar Mapa</button>
+        </form>
+        <div id="uploadStatus" style="margin-top: 10px; font-size: 14px; color: var(--value-color);"></div>
+    </div>
+
+    <div class="card">
+        <h3>Monitoramento</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Parâmetro</th>
+                    <th>Valor</th>
+                    <th>Unidade</th>
+                </tr>
+            </thead>
+            <tbody id="dataTableBody">
+                <tr><td colspan="3" style="text-align: center; color: var(--muted-text);">Aguardando mapa de registradores e conexão serial...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    // Gerenciamento de Tema (Dark/Light Mode)
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = themeToggle.querySelector('span:last-child');
+    
+    // Verifica a preferência salva ou o padrão do SO
+    const savedTheme = localStorage.getItem('theme');
+    // Default agora é light
+    const isDark = savedTheme === 'dark';
+    
+    if (isDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Modo Claro';
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+    }
+
+    themeToggle.addEventListener('click', () => {
+        const isDarkNow = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDarkNow) {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'light');
+            themeIcon.textContent = '🌙';
+            themeText.textContent = 'Modo Escuro';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+            themeIcon.textContent = '☀️';
+            themeText.textContent = 'Modo Claro';
+        }
+    });
+
+    // Gerenciamento do Upload
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('mapFile');
+        const formData = new FormData();
+        formData.append('mapFile', fileInput.files[0]);
+
+        try {
+            const response = await fetch('/upload-map', { method: 'POST', body: formData });
+            const result = await response.json();
+            document.getElementById('uploadStatus').innerText = result.message;
+            if (result.success) {
+                updateMapStatus(true);
+            }
+        } catch (error) {
+            document.getElementById('uploadStatus').innerText = 'Erro ao enviar o arquivo.';
+            document.getElementById('uploadStatus').style.color = 'red';
+        }
+    });
+
+    // Função para atualizar status do mapa
+    function updateMapStatus(loaded) {
+        const badge = document.getElementById('mapStatus');
+        if (loaded) {
+            badge.innerText = '✓ Carregado';
+            badge.classList.remove('status-disconnected');
+            badge.classList.add('status-connected');
+        } else {
+            badge.innerText = '✗ Não Carregado';
+            badge.classList.remove('status-connected');
+            badge.classList.add('status-disconnected');
+        }
+    }
+
+    // Função para atualizar status da conexão serial
+    function updateSerialStatus(connected) {
+        const badge = document.getElementById('serialStatus');
+        if (connected) {
+            badge.innerText = '✓ Conectado';
+            badge.classList.remove('status-disconnected', 'status-pending');
+            badge.classList.add('status-connected');
+        } else {
+            badge.innerText = '✗ Desconectado';
+            badge.classList.remove('status-connected', 'status-pending');
+            badge.classList.add('status-disconnected');
+        }
+    }
+
+    // Recepção dos Dados em Tempo Real
+    const socket = io();
+    const tbody = document.getElementById('dataTableBody');
+
+    socket.on('modbus-data', (data) => {
+        tbody.innerHTML = ''; // Limpa a tabela
+
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+
+            const tdName = document.createElement('td');
+            tdName.textContent = item.name;
+
+            const tdValue = document.createElement('td');
+            tdValue.className = 'value';
+            tdValue.textContent = item.value;
+
+            const tdUnit = document.createElement('td');
+            tdUnit.textContent = item.unit;
+
+            tr.append(tdName, tdValue, tdUnit);
+            tbody.appendChild(tr);
+        });
+    });
+
+    // Recepção de erros de reconexão
+    socket.on('serial-error', (data) => {
+        document.getElementById('configStatus').innerText = data.message;
+        document.getElementById('configStatus').style.color = '#f44336';
+    });
+
+    // Função para conectar a serial com os parâmetros configurados
+    async function conectarSerial() {
+        const config = {
+            port: document.getElementById('serialPort').value,
+            baudRate: parseInt(document.getElementById('baudRate').value),
+            dataBits: parseInt(document.getElementById('dataBits').value),
+            stopBits: parseInt(document.getElementById('stopBits').value),
+            parity: document.getElementById('parity').value,
+            slaveId: parseInt(document.getElementById('slaveId').value)
+        };
+
+        try {
+            document.getElementById('configStatus').innerText = 'Conectando...';
+            document.getElementById('configStatus').style.color = '#ff9800';
+
+            const response = await fetch('/api/connect-serial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                document.getElementById('configStatus').innerText = 'Conectado com sucesso!';
+                document.getElementById('configStatus').style.color = '#10b981'; // Green block
+                document.getElementById('connectBtn').style.display = 'none';
+                document.getElementById('disconnectBtn').style.display = 'flex';
+            } else {
+                document.getElementById('configStatus').innerText = result.message || 'Erro ao conectar.';
+                document.getElementById('configStatus').style.color = '#ef4444'; // Red block
+            }
+        } catch (error) {
+            document.getElementById('configStatus').innerText = 'Erro na requisição: ' + error.message;
+            document.getElementById('configStatus').style.color = '#ef4444'; // Red config error
+        }
+    }
+
+    // Função para desconectar a serial
+    async function desconectarSerial() {
+        try {
+            document.getElementById('configStatus').innerText = 'Desconectando...';
+            document.getElementById('configStatus').style.color = '#f59e0b'; // color warning orange
+
+            const response = await fetch('/api/disconnect-serial', { method: 'POST' });
+            const result = await response.json();
+
+            if (result.success) {
+                document.getElementById('configStatus').innerText = 'Desconectado.';
+                document.getElementById('configStatus').style.color = 'var(--muted-text)';
+                document.getElementById('connectBtn').style.display = 'flex';
+                document.getElementById('disconnectBtn').style.display = 'none';
+            } else {
+                document.getElementById('configStatus').innerText = result.message || 'Erro ao desconectar.';
+                document.getElementById('configStatus').style.color = '#ef4444';
+            }
+        } catch (error) {
+            document.getElementById('configStatus').innerText = 'Erro na requisição: ' + error.message;
+            document.getElementById('configStatus').style.color = '#ef4444';
+        }
+    }
+
+    // Recepção de status da conexão serial
+    socket.on('serial-status', (status) => {
+        updateSerialStatus(status.connected);
+        if (status.connected) {
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('disconnectBtn').style.display = 'flex';
+            document.getElementById('configStatus').innerText = 'Conectado com sucesso!';
+            document.getElementById('configStatus').style.color = '#10b981'; // Green Block
+        } else {
+            document.getElementById('connectBtn').style.display = 'flex';
+            document.getElementById('disconnectBtn').style.display = 'none';
+            document.getElementById('configStatus').innerText = 'Desconectado.';
+            document.getElementById('configStatus').style.color = 'var(--muted-text)';
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,5 @@
+[
+  { "address": 0, "name": "Tensão de Entrada", "unit": "V", "multiplier": 0.1 },
+  { "address": 1, "name": "Carga da Bateria", "unit": "%", "multiplier": 1 },
+  { "address": 2, "name": "Temperatura Interna", "unit": "°C", "multiplier": 0.1 }
+]

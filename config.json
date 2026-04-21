@@ -1,0 +1,17 @@
+{
+  "serialPort": {
+    "port": "COM1",
+    "baudRate": 9600,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none",
+    "slaveId": 1
+  },
+  "polling": {
+    "interval": 1000
+  },
+  "server": {
+    "port": 3000,
+    "host": "localhost"
+  }
+}
